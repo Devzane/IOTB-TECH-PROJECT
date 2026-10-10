@@ -1,0 +1,67 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform.tfstate.lock.info
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform plan files (may contain sensitive decrypted state values)
+*.tfplan
+*.plan
+tfplan
+
+# Lock file (version pinning)
+!.terraform.lock.hcl
+
+# Variable files — contains private IPs, secrets, and credentials
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+
+# Keep example template
+!terraform.tfvars.example
+
+# Environment / Secret files
+.env
+.env.*
+*.env
+
+# SSH private keys and certificates — never commit private keys
+*.pem
+*.key
+*.cer
+*.pfx
+*.p12
+id_rsa
+id_rsa*
+id_ed25519
+id_ed25519*
+phase1-key
+!*.pub
+
+# Ansible generated inventory & runtime files
+ansible/inventory/hosts.ini
+*.retry
+.ansible/
+*.log
+
+# Ansible Vault
+vault_pass.txt
+.vault_pass
+*.vault
+
+# IDE & OS specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+.gemini/
+.agents/
