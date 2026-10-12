@@ -21,14 +21,15 @@
       ansible.builtin.command: cloud-init status --wait
       changed_when: false
 
-    # Belt-and-suspenders: wait for the dpkg frontend lock to be released.
-    # On fast instances cloud-init may finish but unattended-upgrades can
-    # still hold the lock for a few extra seconds.
+    # Wait for apt or dpkg processes to release any active file locks.
     - name: Wait for apt lock to be released
-      ansible.builtin.wait_for:
-        path: /var/lib/dpkg/lock-frontend
-        state: absent
-        timeout: 120
+      ansible.builtin.shell: |
+        while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+          sleep 3
+        done
+      args:
+        executable: /bin/bash
+      changed_when: false
 
     - name: Update apt cache
       ansible.builtin.apt:
