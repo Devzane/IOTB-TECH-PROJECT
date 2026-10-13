@@ -132,7 +132,7 @@ public_ip    = "x.x.x.x"
 ssh_command  = "ssh -i ~/.ssh/phase1-key ubuntu@x.x.x.x"
 ```
 
-[INSERT IMAGE: Terminal showing terraform apply completing with 11 resources added and the outputs block]
+![Terraform apply completed](docs/images/terraform-apply.png)
 
 The resulting instance as shown in the EC2 console: running `t3.micro` in the project VPC and public subnet, attached to the empty IAM role, with IMDSv2 set to Required and no Elastic IP.
 
@@ -145,7 +145,7 @@ cat ansible/inventory/hosts.ini
 ssh -i ~/.ssh/phase1-key ubuntu@<public_ip>
 ```
 
-[INSERT IMAGE: Terminal showing successful SSH login with the Ubuntu 24.04 welcome banner]
+![SSH login banner](docs/images/ssh-login.png)
 
 ### 4. Ansible connectivity and syntax checks
 
@@ -164,7 +164,7 @@ phase1-dev | SUCCESS => {
 }
 ```
 
-[INSERT IMAGE: Terminal showing ansible ping returning SUCCESS]
+![Ansible ping success](docs/images/ansible-ping.png)
 
 ### 5. Dry run (optional)
 
@@ -187,7 +187,7 @@ PLAY RECAP
 phase1-dev : ok=N  changed=N  unreachable=0  failed=0  skipped=0
 ```
 
-[INSERT IMAGE: Full ansible-playbook output showing PLAY RECAP with failed=0]
+![Ansible playbook run output](docs/images/ansible-playbook-run.png)
 
 ### 7. Verify Docker on the instance
 
@@ -195,7 +195,7 @@ phase1-dev : ok=N  changed=N  unreachable=0  failed=0  skipped=0
 ssh -i ~/.ssh/phase1-key ubuntu@<public_ip> "docker --version && docker info | head -5"
 ```
 
-[INSERT IMAGE: Terminal showing docker --version and docker info output from the EC2 instance]
+![Docker verification on EC2](docs/images/docker-verify.png)
 
 ### 8. Idempotency check
 
@@ -205,7 +205,7 @@ ansible-playbook playbooks/site.yml
 
 Expected: every task reports `ok` except `Verify Docker is functional by running hello-world`, which always reports `changed` (see [below](#docker-run-hello-world-is-not-idempotent)).
 
-[INSERT IMAGE: Second run PLAY RECAP showing changed=1 (hello-world task only) and failed=0]
+![Ansible idempotency second run](docs/images/ansible-idempotency.png)
 
 ## Teardown
 
@@ -215,7 +215,7 @@ terraform destroy
 
 Review the plan (11 resources) and confirm. This terminates the instance, removes the VPC and all network resources, and deregisters the key pair.
 
-[INSERT IMAGE: Terminal showing terraform destroy complete]
+![Terraform destroy complete](docs/images/terraform-destroy.png)
 
 ## Cost
 
