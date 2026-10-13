@@ -20,7 +20,7 @@ This is Phase 1 of a three-phase project that builds toward a full CI/CD pipelin
 
 ## Architecture
 
-[INSERT IMAGE: Architecture diagram showing local machine, SSH path, VPC, public subnet, Internet Gateway, route table, security group, and EC2 instance running Docker]
+![Phase 1 Architecture Diagram](docs/images/architecture.png)
 
 ```mermaid
 flowchart TD
