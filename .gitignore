@@ -1,5 +1,5 @@
-# Terraform
-.terraform/
+# Terraform runtime and states
+**/.terraform/
 *.tfstate
 *.tfstate.*
 *.tfstate.backup
@@ -11,29 +11,34 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-# Terraform plan files (may contain sensitive decrypted state values)
+# Terraform plan files
 *.tfplan
 *.plan
 tfplan
+**/tfplan
 
-# Lock file (version pinning)
-!.terraform.lock.hcl
+# Pin provider versions
+!**/.terraform.lock.hcl
 
-# Variable files — contains private IPs, secrets, and credentials
+# Variable files & secrets
 *.tfvars
 *.tfvars.json
 *.auto.tfvars
 *.auto.tfvars.json
+**/*.tfvars
+**/*.tfvars.json
 
-# Keep example template
-!terraform.tfvars.example
+# Keep template examples
+!**/*.tfvars.example
 
 # Environment / Secret files
 .env
 .env.*
 *.env
+**/.env
+**/.env.*
 
-# SSH private keys and certificates — never commit private keys
+# SSH private keys and certificates
 *.pem
 *.key
 *.cer
@@ -44,10 +49,12 @@ id_rsa*
 id_ed25519
 id_ed25519*
 phase1-key
+**/phase1-key
 !*.pub
 
 # Ansible generated inventory & runtime files
 ansible/inventory/hosts.ini
+**/ansible/inventory/hosts.ini
 *.retry
 .ansible/
 *.log
