@@ -10,7 +10,7 @@ A structured, multi-phase enterprise DevOps repository demonstrating cloud infra
 | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | **Cloud Infrastructure & Configuration Automation** | Terraform, Ansible, AWS EC2, Ubuntu 24.04, Docker CE | Completed | [Phase 1 Documentation](./phase1/README.md) |
 | **Phase 2** | **Application Containerization & Amazon ECR Deployment** | Docker, Docker Compose, NestJS, Next.js, PostgreSQL, Amazon ECR | In Progress | [Phase 2 Documentation](./phase2/README.md) |
-| **Phase 3** | **Container Orchestration & Automated CI/CD Pipeline** | Kubernetes / ECS, GitHub Actions | Upcoming | Planned |
+| **Phase 3** | **Container Orchestration & Automated CI/CD Pipeline** | Kubernetes / ECS, GitHub Actions | Upcoming | [Phase 3 Documentation](./phase3/README.md) |
 
 ---
 
@@ -30,6 +30,8 @@ A structured, multi-phase enterprise DevOps repository demonstrating cloud infra
 │   ├── frontend/                 # Next.js 14 Standalone App + Production Dockerfile
 │   ├── docker-compose.yml        # Local multi-service stack (Postgres + Backend + Frontend)
 │   └── README.md                 # Phase 2 containerization & ECR operational guide
+├── phase3/                       # Container Orchestration & CI/CD Deployment
+│   └── README.md                 # Phase 3 planned architecture & deployment guide
 ├── AGENTS.md                     # Engineering standards & conventional commit rules
 └── README.md                     # Project portfolio root documentation
 ```
