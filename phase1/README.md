@@ -2,13 +2,6 @@
 
 Infrastructure as Code project that provisions a hardened AWS EC2 instance (Ubuntu 24.04 LTS) with Terraform, then configures it with Ansible to run Docker CE from the official Docker apt repository. Infrastructure and configuration are deliberately separated so each can be changed and re-run independently.
 
-This is Phase 1 of a three-phase project that builds toward a full CI/CD pipeline:
-
-| Phase | Scope | Status |
-|---|---|---|
-| 1 (this repository) | Provision EC2 with Terraform, install and verify Docker with Ansible | Complete |
-| 2 | Build a Docker image, push to Amazon ECR, pull and run on EC2, add S3 remote state backend | Planned |
-| 3 | GitHub Actions pipeline automating build, push, and deploy | Planned |
 
 ## Highlights
 
