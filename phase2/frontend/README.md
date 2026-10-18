@@ -52,7 +52,18 @@ npm run dev
 
 The app runs on `http://localhost:3000`.
 
-### 4. Production build
+### 4. Default Test Credentials
+To log into the dashboard and test all finance modules:
+
+| Field | Value |
+| :--- | :--- |
+| **Email** | `admin@zeeta.com` |
+| **Password** | `admin123` |
+| **Role** | Finance Administrator (`finance_admin`) |
+
+> **Note:** Ensure the backend API service is running and seeded before logging in.
+
+### 5. Production build
 
 ```bash
 npm run build
