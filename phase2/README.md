@@ -75,10 +75,29 @@ phase2/
 docker compose up -d
 ```
 
-### Verification Endpoints
-* **Frontend Web Application:** [http://localhost:3000](http://localhost:3000)
-* **Backend REST API:** [http://localhost:3001/api](http://localhost:3001/api)
-* **Backend Swagger API Documentation:** [http://localhost:3001/api/docs](http://localhost:3001/api/docs)
+### Default Test & Admin Credentials
+Once the stack is running, log into the web application or authenticate via the API using the seeded administrator credentials:
+
+| Field | Value | Description |
+| :--- | :--- | :--- |
+| **Email / Username** | `admin@zeeta.com` | Pre-configured Finance Admin |
+| **Password** | `admin123` | Encrypted via bcrypt (cost factor 10) |
+| **Role** | `finance_admin` | Unrestricted access across all 6 financial modules |
+
+### Database Seeding
+If running against a clean PostgreSQL container, seed the database tables and admin user:
+```bash
+# Seed via the backend container:
+docker exec -it zeetafin-backend node -e "require('./dist/seed.js')"
+
+# Or seed via npm on host:
+cd backend && npm run setup
+```
+
+### Verification Endpoints & Health Checks
+* **Frontend Web Application:** [http://localhost:3000](http://localhost:3000) (Next.js App Router, full financial UI)
+* **Backend REST API:** [http://localhost:3001/api](http://localhost:3001/api) (NestJS API gateway)
+* **Backend Swagger API Documentation:** [http://localhost:3001/api/docs](http://localhost:3001/api/docs) (Interactive OpenAPI Explorer)
 * **PostgreSQL Database:** `localhost:5432` (`db: zeetafin`, `user: postgres`)
 
 ---
@@ -90,20 +109,47 @@ docker compose up -d
 aws ecr get-login-password --region us-east-1 --profile phase1 | docker login --username AWS --password-stdin 672061768969.dkr.ecr.us-east-1.amazonaws.com
 ```
 
-### 2. Create ECR Repositories (if not already created)
+### 2. Create ECR Repositories with Vulnerability Scanning
 ```bash
-aws ecr create-repository --repository-name zeetafin-backend --region us-east-1 --profile phase1
-aws ecr create-repository --repository-name zeetafin-frontend --region us-east-1 --profile phase1
+aws ecr create-repository \
+  --repository-name zeetafin-backend \
+  --region us-east-1 \
+  --profile phase1 \
+  --image-scanning-configuration scanOnPush=true \
+  --image-tag-mutability MUTABLE
+
+aws ecr create-repository \
+  --repository-name zeetafin-frontend \
+  --region us-east-1 \
+  --profile phase1 \
+  --image-scanning-configuration scanOnPush=true \
+  --image-tag-mutability MUTABLE
 ```
 
-### 3. Tag Docker Images for ECR
+### 3. Apply Lifecycle Policy (Retain Last 10 Images)
+```bash
+aws ecr put-lifecycle-policy \
+  --repository-name zeetafin-backend \
+  --region us-east-1 \
+  --profile phase1 \
+  --lifecycle-policy-text '{"rules":[{"rulePriority":1,"description":"Retain last 10 images","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":10},"action":{"type":"expire"}}]}'
+
+aws ecr put-lifecycle-policy \
+  --repository-name zeetafin-frontend \
+  --region us-east-1 \
+  --profile phase1 \
+  --lifecycle-policy-text '{"rules":[{"rulePriority":1,"description":"Retain last 10 images","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":10},"action":{"type":"expire"}}]}'
+```
+
+### 4. Tag Docker Images for ECR
 ```bash
 docker tag zeetafin-backend:local 672061768969.dkr.ecr.us-east-1.amazonaws.com/zeetafin-backend:latest
 docker tag zeetafin-frontend:local 672061768969.dkr.ecr.us-east-1.amazonaws.com/zeetafin-frontend:latest
 ```
 
-### 4. Push to Amazon ECR
+### 5. Push Images to Amazon ECR
 ```bash
 docker push 672061768969.dkr.ecr.us-east-1.amazonaws.com/zeetafin-backend:latest
 docker push 672061768969.dkr.ecr.us-east-1.amazonaws.com/zeetafin-frontend:latest
 ```
+
