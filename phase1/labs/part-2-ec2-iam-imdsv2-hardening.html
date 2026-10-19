@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hardened EC2 Compute, IMDSv2, Encrypted EBS &amp; IAM — ZeetaFin Phase 1 Lab</title>
+<meta name="description" content="Part 2 of the ZeetaFin Phase 1 Infrastructure Lab: provision a hardened Ubuntu 24.04 EC2 instance, enforce IMDSv2 against SSRF, configure gp3 encrypted EBS, and implement least-privilege IAM roles.">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f8fafc; --surface:#ffffff; --surface-2:#f1f5f9; --ink:#0f172a; --ink-2:#334155; --muted:#64748b; --line:#e2e8f0;
+  --c1:#6366f1; --c2:#0ea5e9; --c3:#f59e0b; --c4:#10b981; --c5:#8b5cf6; --c6:#ec4899;
+  --accent:#0ea5e9; --accent-ink:#0284c7; --accent-soft:#f0f9ff;
+  --mint:#10b981; --mint-soft:#ecfdf5; --amber:#f59e0b; --amber-soft:#fffbeb; --rose:#ef4444; --rose-soft:#fef2f2;
+  --night:#0a0f1d; --night-2:#11192e; --night-line:#1e293b; --night-ink:#f8fafc; --night-muted:#94a3b8;
+  --sans:"DM Sans","Helvetica Neue",Arial,sans-serif; --head:"Sora","DM Sans",Arial,sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --shadow:0 1px 3px rgba(15,23,42,.08),0 10px 30px rgba(15,23,42,.04);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#070b14; --surface:#0e1526; --surface-2:#141f38; --ink:#f8fafc; --ink-2:#cbd5e1; --muted:#8899b5; --line:#1d2945;
+    --accent:#38bdf8; --accent-ink:#7dd3fc; --accent-soft:#0c2238;
+    --mint:#34d3b4; --mint-soft:#062d25; --amber:#fbbf24; --amber-soft:#332205; --rose:#f87171; --rose-soft:#341318;
+    --shadow:0 1px 3px rgba(0,0,0,.5),0 14px 40px rgba(0,0,0,.45);
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:radial-gradient(900px 500px at 100% 0,color-mix(in srgb,var(--c2) 8%,transparent),transparent 70%),radial-gradient(800px 500px at 0 30%,color-mix(in srgb,var(--c4) 7%,transparent),transparent 70%),var(--bg);color:var(--ink-2);font-family:var(--sans);font-size:18px;line-height:1.72;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:var(--accent-ink);text-underline-offset:3px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 28px}
+.progress{position:fixed;inset:0 0 auto 0;height:5px;z-index:50;background:transparent}
+.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--c2),var(--c4),var(--c1),var(--c3),var(--c6))}
+
+/* Hero */
+.hero{background:var(--night);color:var(--night-ink);position:relative;overflow:hidden;isolation:isolate}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(750px 380px at 90% -10%,rgba(14,165,233,.65),transparent 62%),radial-gradient(650px 380px at 10% 110%,rgba(16,185,129,.45),transparent 62%),radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.2px) 0 0/26px 26px}
+.hero .wrap{padding-top:44px;padding-bottom:44px}
+.sbar{display:flex;gap:8px;margin:0 0 30px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.sbar::-webkit-scrollbar{display:none}
+@media (min-width:900px){.sbar{flex-wrap:wrap;overflow:visible}}
+.sbar .p{display:inline-flex;align-items:center;gap:9px;flex:none;padding:6px 14px 6px 6px;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);color:#cbd5e1;text-decoration:none;font:600 13px var(--head);transition:all .18s}
+.sbar .p i{width:24px;height:24px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font-style:normal;font-size:12px}
+.sbar .p:hover{background:rgba(255,255,255,.14);color:#fff}
+.sbar .p.on{background:#fff;color:#0a0f1d;border-color:#fff}
+
+h1{font-family:var(--head);font-weight:800;font-size:clamp(36px,5.4vw,64px);line-height:1.06;letter-spacing:-.035em;margin:0;max-width:18ch;color:#fff}
+.dek{font-size:clamp(18px,2vw,22px);line-height:1.55;color:#cbd5e1;max-width:56ch;margin:20px 0 0}
+.meta{display:flex;flex-wrap:wrap;gap:8px 22px;margin:24px 0 0;font-family:var(--head);font-size:13.5px;color:var(--night-muted)}
+.meta span{display:inline-flex;gap:8px;align-items:center}
+.tools{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 0}
+.tool{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:12px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);color:#fff;font:600 13.5px var(--head)}
+.hero-art{margin-top:34px;border:1px solid rgba(255,255,255,.2);border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));padding:12px;box-shadow:0 30px 80px rgba(0,0,0,.4);backdrop-filter:blur(4px)}
+.hero-art>svg{display:block;width:100%;height:auto}
+
+/* Layout */
+.layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:64px;align-items:start;padding-top:56px}
+nav.toc{position:sticky;top:24px;font-family:var(--head);font-size:13.5px;max-height:calc(100vh - 48px);overflow:auto}
+nav.toc h2{font-size:12px;font-weight:700;color:var(--muted);margin:0 0 12px;letter-spacing:.04em;text-transform:uppercase}
+nav.toc ol{list-style:none;margin:0;padding:0;border-left:1.5px solid var(--line)}
+nav.toc a{display:block;padding:6px 0 6px 16px;margin-left:-1.5px;border-left:1.5px solid transparent;color:var(--muted);text-decoration:none;line-height:1.35;transition:color .15s}
+nav.toc a:hover{color:var(--ink)}
+nav.toc a.on{color:var(--accent);border-left-color:var(--accent);font-weight:700}
+nav.toc li.sub a{padding-left:30px;font-size:12.5px}
+.sidecard{margin-top:26px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);font-size:13px;line-height:1.5;color:var(--muted);box-shadow:var(--shadow)}
+.sidecard b{display:block;color:var(--ink);font-family:var(--head);font-size:13.5px;margin-bottom:4px}
+
+article{min-width:0;max-width:780px}
+article h2{font-family:var(--head);font-weight:700;font-size:clamp(28px,3.4vw,38px);line-height:1.18;letter-spacing:-.025em;margin:88px 0 16px;color:var(--ink);scroll-margin-top:20px;display:flex;gap:14px;align-items:center;padding-bottom:14px;border-bottom:2px solid var(--line)}
+article h2 .hi{width:48px;height:48px;border-radius:14px;background:var(--hc,var(--c2));color:#fff;display:grid;place-items:center;flex:none;box-shadow:0 8px 20px color-mix(in srgb,var(--hc,var(--c2)) 35%,transparent)}
+article h2 .hi svg{width:26px;height:26px;stroke-width:2}
+article h2:first-child{margin-top:0}
+article h2:nth-of-type(6n+1){--hc:var(--c2)}article h2:nth-of-type(6n+2){--hc:var(--c4)}article h2:nth-of-type(6n+3){--hc:var(--c1)}article h2:nth-of-type(6n+4){--hc:var(--c3)}article h2:nth-of-type(6n+5){--hc:var(--c5)}article h2:nth-of-type(6n+6){--hc:var(--c6)}
+
+article h3{font-family:var(--head);font-weight:700;font-size:21px;line-height:1.3;margin:48px 0 10px;color:var(--ink);scroll-margin-top:20px;letter-spacing:-.01em;background:linear-gradient(90deg,color-mix(in srgb,var(--c2) 12%,transparent),transparent 85%);border-left:6px solid var(--c2);padding:12px 18px;border-radius:0 14px 14px 0}
+article p{margin:0 0 1.15em}
+article ul,article ol{padding-left:1.3em;margin:0 0 1.25em}
+article li{margin:.4em 0}
+article strong,article b{color:var(--ink);font-weight:700}
+code{font-family:var(--mono);font-size:.84em;background:color-mix(in srgb,var(--c2) 12%,transparent);color:var(--accent-ink);padding:.12em .45em;border-radius:6px;font-weight:500}
+.lead{font-size:1.15em;color:var(--ink);line-height:1.68}
+
+/* Code & Term */
+.code,.term{margin:24px 0 28px;border-radius:16px;overflow:hidden;background:var(--night);border:1px solid #223055;box-shadow:0 14px 40px rgba(10,15,29,.25)}
+.bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#152042,#0d152d);border-bottom:1px solid #1f2c4e;font-family:var(--mono);font-size:12.5px;color:#8f9cb8}
+.bar .dots{display:flex;gap:6px}.bar .dots i{width:10px;height:10px;border-radius:50%;display:block}
+.bar .dots i:nth-child(1){background:#ff5f57}.bar .dots i:nth-child(2){background:#febc2e}.bar .dots i:nth-child(3){background:#28c840}
+.bar .fn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.bar .tag{font-family:var(--head);font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:#1a2750;color:#38bdf8}
+.bar .tag.exp{background:#3a2d12;color:#f0b24a}.bar .tag.warn{background:#3a1818;color:#f87171}
+.copy{all:unset;cursor:pointer;display:inline-flex;gap:6px;align-items:center;font-family:var(--head);font-size:12px;color:#38bdf8;padding:4px 9px;border-radius:7px;border:1px solid #273766;transition:all .15s}
+.copy:hover{background:#1a2750;color:#fff}.copy.copied{color:#34d3b4;border-color:#34d3b4;background:rgba(52,211,180,.1)}
+.copy svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+pre{margin:0;font-family:var(--mono);font-size:14px;line-height:1.68;color:#dce5f8;padding:16px 18px;overflow-x:auto;tab-size:2}
+pre code{background:none;color:inherit;padding:0;font-size:inherit}
+.k{color:#38bdf8;font-weight:600}.s2{color:#6ee7b7}.c{color:#64748b;font-style:italic}.n{color:#fcd34d}.p{color:#94a3b8;user-select:none}
+.ok{color:#34d3b4}.bad{color:#f87171}.dim{color:#64748b}.b{font-weight:700;color:#fff}.warn{color:#fbbf24}
+
+/* Callouts */
+.callout{display:flex;gap:14px;padding:18px 20px;border-radius:16px;margin:28px 0;border-left-width:6px;border-left-style:solid;box-shadow:var(--shadow);font-size:16px;line-height:1.62;color:var(--ink-2)}
+.callout>svg{width:32px;height:32px;padding:6px;border-radius:50%;color:#fff;margin-top:2px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.callout b.t{display:block;font-family:var(--head);color:var(--ink);margin-bottom:3px;font-weight:700}
+.callout p{margin:0 0 .5em}.callout p:last-child{margin:0}
+.callout.info{background:var(--accent-soft);border-left-color:var(--accent)}.callout.info>svg{background:var(--accent)}
+.callout.warn{background:var(--amber-soft);border-left-color:var(--amber)}.callout.warn>svg{background:var(--amber)}
+.callout.ok{background:var(--mint-soft);border-left-color:var(--mint)}.callout.ok>svg{background:var(--mint)}
+.callout.bad{background:var(--rose-soft);border-left-color:var(--rose)}.callout.bad>svg{background:var(--rose)}
+
+/* Tables */
+.tbl{overflow-x:auto;margin:24px 0 28px;border:1px solid color-mix(in srgb,var(--c2) 22%,var(--line));border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;font-size:15px;font-family:var(--sans)}
+th,td{text-align:left;padding:12px 18px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55}
+tr:last-child td{border-bottom:0}
+th{font-family:var(--head);font-weight:700;font-size:13.5px;color:var(--accent-ink);background:color-mix(in srgb,var(--c2) 14%,var(--surface));border-bottom:2px solid color-mix(in srgb,var(--c2) 32%,var(--line))}
+tr:nth-child(even) td{background:color-mix(in srgb,var(--surface-2) 65%,var(--surface))}
+td:first-child{color:var(--ink);font-weight:600;border-right:1px solid var(--line)}
+
+/* Details */
+details{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin:24px 0;padding:0 20px;box-shadow:var(--shadow);border-left:5px solid var(--c4)}
+details summary{font-family:var(--head);font-weight:700;font-size:16px;cursor:pointer;padding:16px 0;color:var(--ink);list-style:none;display:flex;gap:10px;align-items:center}
+details summary::-webkit-details-marker{display:none}
+details summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s}
+details[open] summary::after{transform:rotate(-135deg)}
+details[open] summary{border-bottom:1px solid var(--line);margin-bottom:14px}
+details p:last-child{margin-bottom:16px}
+
+/* Steps */
+.steps{list-style:none;padding:0;margin:28px 0;counter-reset:s}
+.steps>li{counter-increment:s;position:relative;padding:0 0 28px 58px;margin:0}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:38px;height:38px;border-radius:50%;background:var(--ink);color:var(--surface);font-family:var(--head);font-weight:700;font-size:15px;display:grid;place-items:center}
+.steps>li::after{content:"";position:absolute;left:18.5px;top:44px;bottom:6px;width:1.5px;background:var(--line)}
+.steps>li:last-child{padding-bottom:0}.steps>li:last-child::after{display:none}
+.steps>li>b:first-child{display:block;font-family:var(--head);font-size:17px;color:var(--ink);margin:6px 0 4px}
+
+/* Cards & Grid */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:26px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 16px 16px;box-shadow:var(--shadow);border-top:4px solid var(--c)}
+.card h4{margin:0 0 4px;font-family:var(--head);font-size:16px;color:var(--ink);font-weight:700}
+.card p{margin:0;font-size:14.5px;line-height:1.52;color:var(--muted)}
+
+/* Anatomy */
+.anat{font-family:var(--mono);font-size:14px;line-height:2.2;background:var(--night);color:#dce5f8;border-radius:16px;padding:18px 22px;overflow-x:auto;margin:22px 0 10px;border:1px solid #1f2c4e}
+.anat .a{padding:3px 7px;border-radius:6px;border-bottom:2px solid}
+.a-type{background:rgba(14,165,233,.2);border-color:#38bdf8}
+.a-name{background:rgba(16,185,129,.2);border-color:#34d3b4}
+.a-arg{background:rgba(245,158,11,.2);border-color:#fbbf24}
+.a-ref{background:rgba(239,68,68,.2);border-color:#f87171}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--head);font-size:13px;color:var(--muted);margin:0 0 28px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:0}
+
+/* Pager */
+.pager{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:60px 0 0}
+.pager a{display:block;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:16px 20px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);font-family:var(--head);font-weight:700;transition:border-color .15s}
+.pager a small{display:block;font-weight:500;color:var(--muted);font-size:12.5px;margin-bottom:4px}
+.pager a:hover{border-color:var(--accent)}.pager .r{text-align:right}
+footer{margin-top:80px;border-top:1px solid var(--line);padding:32px 0 64px;font-family:var(--head);font-size:14px;color:var(--muted)}
+
+/* Responsive */
+@media(max-width:960px){
+  .layout{grid-template-columns:1fr;gap:0;padding-top:34px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px}
+  nav.toc ol{display:flex;flex-wrap:wrap;gap:2px 16px;border:0}
+  nav.toc a,nav.toc li.sub a{padding:4px 0;border:0;margin:0}
+  nav.toc li.sub,.sidecard{display:none}
+}
+@media(max-width:600px){body{font-size:17px}.wrap{padding:0 18px}pre{font-size:12.5px}article h2 .hi{display:none}.pager{grid-template-columns:1fr}}
+</style></head><body>
+<div class="progress"><i></i></div>
+
+<!-- ===== HERO ===== -->
+<header class="hero"><div class="wrap">
+<nav class="sbar" aria-label="Lab chapters">
+  <a class="p" href="part-1-aws-vpc-infrastructure-terraform.html" style="--c:#6366f1"><i>1</i><span>VPC &amp; Terraform</span></a>
+  <a class="p on" href="part-2-ec2-iam-imdsv2-hardening.html" style="--c:#0ea5e9" aria-current="page"><i>2</i><span>EC2 &amp; IMDSv2</span></a>
+  <a class="p" href="part-3-ansible-automation-docker.html" style="--c:#f59e0b"><i>3</i><span>Ansible &amp; Docker</span></a>
+  <a class="p" href="part-4-idempotency-testing-troubleshooting.html" style="--c:#10b981"><i>4</i><span>Idempotency &amp; Triage</span></a>
+</nav>
+
+<h1>Hardened EC2 Compute, IMDSv2, Encrypted EBS, and IAM Least Privilege</h1>
+<p class="dek">Zero-trust host engineering: resolving dynamic Ubuntu 24.04 AMIs, shutting down SSRF credential theft with IMDSv2 session tokens, encrypting 20 GiB gp3 storage with KMS, and bootstrapping forward-compatible IAM roles.</p>
+
+<p class="meta">
+  <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Oct 2026</span>
+  <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ~45 min read</span>
+  <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 0 0 5 5L21 12.6a2 2 0 0 1 0 2.8l-5.6 5.6a2 2 0 0 1-2.8 0L3 11.4a2 2 0 0 1 0-2.8L8.6 3a2 2 0 0 1 2.8 0z" transform="translate(0 0) scale(.9) translate(1.3 1.3)"/></svg> ~60 min hands-on</span>
+  <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> EC2 Nitro, IMDSv2, EBS gp3, IAM, Ed25519</span>
+</p>
+
+<div class="tools">
+  <span class="tool">🖥️ EC2 t3.micro Nitro</span>
+  <span class="tool">🛡️ IMDSv2 Enforced</span>
+  <span class="tool">💾 EBS 20 GiB gp3 Encrypted</span>
+  <span class="tool">🔑 Ed25519 Cryptography</span>
+</div>
+
+<div class="hero-art">
+<svg viewBox="0 0 1080 390" role="img" aria-label="EC2 Host Security Boundary: IMDSv2 defense, EBS gp3 KMS encryption, and IAM instance profile">
+  <defs>
+    <linearGradient id="g-host" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0c2340" stop-opacity="0.9"/><stop offset="100%" stop-color="#0a1022" stop-opacity="0.95"/></linearGradient>
+    <linearGradient id="g-nitro" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#064e3b" stop-opacity="0.8"/><stop offset="100%" stop-color="#022c22" stop-opacity="0.9"/></linearGradient>
+  </defs>
+
+  <!-- AWS Nitro Hypervisor Outer Box -->
+  <rect x="250" y="20" width="800" height="350" rx="20" fill="url(#g-nitro)" stroke="#10b981" stroke-width="2"/>
+  <text x="275" y="48" fill="#a7f3d0" font-family="Sora, sans-serif" font-size="13" font-weight="700">⚡ AWS Nitro Hypervisor &amp; Hardware Security Plane</text>
+
+  <!-- EC2 Instance Box -->
+  <rect x="280" y="65" width="500" height="280" rx="16" fill="url(#g-host)" stroke="#38bdf8" stroke-width="2"/>
+  <text x="305" y="95" fill="#bae6fd" font-family="Sora, sans-serif" font-size="14" font-weight="700">🖥️ EC2 Instance: phase1-dev-server (t3.micro)</text>
+  <text x="305" y="115" fill="#7dd3fc" font-family="JetBrains Mono, monospace" font-size="11">Ubuntu 24.04 LTS (Noble Numbat) · 2 vCPU · 1 GiB RAM</text>
+
+  <!-- IMDSv2 Security Engine Inside Host -->
+  <rect x="305" y="135" width="450" height="95" rx="12" fill="#0f172a" stroke="#f59e0b" stroke-width="1.8"/>
+  <text x="325" y="160" fill="#fde68a" font-family="Sora, sans-serif" font-size="12.5" font-weight="700">🛡️ IMDSv2 Enforced: http_tokens = "required"</text>
+  <text x="325" y="180" fill="#cbd5e1" font-family="JetBrains Mono, monospace" font-size="10.5">1. Attacker sends GET /latest/meta-data/ ──► <tspan fill="#f87171" font-weight="700">401 Unauthorized (BLOCKED)</tspan></text>
+  <text x="325" y="200" fill="#cbd5e1" font-family="JetBrains Mono, monospace" font-size="10.5">2. Legitimate: PUT with TTL header ──► Gets Token ──► GET with token = <tspan fill="#34d3b4" font-weight="700">200 OK</tspan></text>
+  <text x="325" y="218" fill="#94a3b8" font-family="JetBrains Mono, monospace" font-size="10">Hop Limit: 1 (Blocks Container &amp; Proxy SSRF Relays)</text>
+
+  <!-- Storage: gp3 Encrypted EBS -->
+  <rect x="305" y="245" width="215" height="80" rx="10" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.6"/>
+  <text x="320" y="270" fill="#c7d2fe" font-family="Sora, sans-serif" font-size="12" font-weight="700">💾 EBS 20 GiB gp3</text>
+  <text x="320" y="290" fill="#a5b4fc" font-family="JetBrains Mono, monospace" font-size="10.5">KMS Encrypted: YES</text>
+  <text x="320" y="308" fill="#94a3b8" font-family="JetBrains Mono, monospace" font-size="10">3,000 IOPS · 125 MB/s</text>
+
+  <!-- IAM Role Attachment -->
+  <rect x="540" y="245" width="215" height="80" rx="10" fill="#1e293b" stroke="#34d3b4" stroke-width="1.6"/>
+  <text x="555" y="270" fill="#a7f3d0" font-family="Sora, sans-serif" font-size="12" font-weight="700">🔐 IAM Instance Profile</text>
+  <text x="555" y="290" fill="#6ee7b7" font-family="JetBrains Mono, monospace" font-size="10.5">phase1-dev-ec2-role</text>
+  <text x="555" y="308" fill="#94a3b8" font-family="JetBrains Mono, monospace" font-size="10">0 Policies (Least Privilege)</text>
+
+  <!-- External AWS Services on Right -->
+  <rect x="810" y="80" width="220" height="110" rx="14" fill="#0f172a" stroke="#818cf8" stroke-width="1.8"/>
+  <text x="825" y="108" fill="#fff" font-family="Sora, sans-serif" font-size="13" font-weight="700">☁️ AWS IAM &amp; STS</text>
+  <text x="825" y="130" fill="#cbd5e1" font-family="JetBrains Mono, monospace" font-size="10.5">Trust: ec2.amazonaws.com</text>
+  <text x="825" y="150" fill="#94a3b8" font-family="JetBrains Mono, monospace" font-size="10">Phase 2 Ready: ECR pull</text>
+  <text x="825" y="170" fill="#34d3b4" font-family="JetBrains Mono, monospace" font-size="10">No instance replacement!</text>
+
+  <rect x="810" y="215" width="220" height="110" rx="14" fill="#0f172a" stroke="#f59e0b" stroke-width="1.8"/>
+  <text x="825" y="243" fill="#fff" font-family="Sora, sans-serif" font-size="13" font-weight="700">🔑 AWS KMS Service</text>
+  <text x="825" y="265" fill="#fde68a" font-family="JetBrains Mono, monospace" font-size="10.5">AES-256 Envelope Key</text>
+  <text x="825" y="285" fill="#94a3b8" font-family="JetBrains Mono, monospace" font-size="10">Hardware crypto offload</text>
+  <text x="825" y="305" fill="#6ee7b7" font-family="JetBrains Mono, monospace" font-size="10">Zero CPU penalty on EC2</text>
+
+  <!-- Left: Operator SSH -->
+  <rect x="20" y="140" width="190" height="100" rx="14" fill="#1e1b4b" stroke="#38bdf8" stroke-width="2"/>
+  <text x="35" y="168" fill="#fff" font-family="Sora, sans-serif" font-size="13.5" font-weight="700">🧑‍💻 Operator Terminal</text>
+  <text x="35" y="190" fill="#7dd3fc" font-family="JetBrains Mono, monospace" font-size="11">Ed25519 Private Key</text>
+  <text x="35" y="208" fill="#94a3b8" font-family="JetBrains Mono, monospace" font-size="10">~/.ssh/phase1-key (0600)</text>
+  <text x="35" y="226" fill="#34d3b4" font-family="JetBrains Mono, monospace" font-size="10">Pubkey sent to TF only</text>
+
+  <path d="M 210 190 L 280 190" fill="none" stroke="#38bdf8" stroke-width="2.5" marker-end="url(#arr-blue)"/>
+</svg>
+</div>
+</div></header>
+
+<!-- ===== MAIN ===== -->
+<div class="wrap"><div class="layout">
+
+<!-- TOC -->
+<nav class="toc" aria-label="Contents">
+  <h2>On this page</h2>
+  <ol>
+    <li><a href="#compute-plane">1. The Nitro Compute Plane</a></li>
+    <li><a href="#dynamic-ami">2. Dynamic Ubuntu 24.04 AMI</a></li>
+    <li><a href="#imdsv2-deep-dive">3. IMDSv1 vs IMDSv2 SSRF Defense</a></li>
+    <li><a href="#ebs-encryption">4. Encrypted EBS gp3 Storage</a></li>
+    <li><a href="#iam-least-privilege">5. Zero-Permission IAM Role</a></li>
+    <li><a href="#ed25519-keys">6. Ed25519 SSH Cryptography</a></li>
+    <li><a href="#instance-code">7. Line-by-Line EC2 Anatomy</a></li>
+    <li><a href="#failures">8. Production Failures &amp; Fixes</a></li>
+    <li class="sub"><a href="#sc1">Scenario 1: SSRF Exploitation</a></li>
+    <li class="sub"><a href="#sc2">Scenario 2: SSH Permissions 0644</a></li>
+    <li class="sub"><a href="#sc3">Scenario 3: EBS Snapshot Drift</a></li>
+    <li><a href="#checklist">9. Host Hardening Checklist</a></li>
+    <li><a href="#exercises">10. Hands-on Exercises</a></li>
+    <li><a href="#next">11. What Comes Next</a></li>
+  </ol>
+  <div class="sidecard">
+    <b>Phase 1 Lab Series</b>
+    AWS EC2 &amp; Docker Provisioning with Terraform &amp; Ansible.
+  </div>
+</nav>
+
+<!-- ARTICLE -->
+<article>
+
+<!-- SECTION 1 -->
+<h2 id="compute-plane"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>1. The Nitro Compute Plane: Why t3.micro?</h2>
+
+<p class="lead">Choosing an EC2 instance type requires understanding hypervisor architectures, CPU bursting credits, and cost optimization. In Phase 1, we select <code>t3.micro</code> running on AWS Nitro.</p>
+
+<p>The <strong>AWS Nitro System</strong> offloads storage (NVMe), networking (ENA), and hypervisor management to dedicated Nitro PCIe cards. Unlike legacy Xen hypervisors (like the older <code>t2</code> generation), almost 100% of host CPU and memory are dedicated to your virtual machine.</p>
+
+<div class="tbl">
+<table>
+  <tr><th>Specification</th><th>t2.micro (Legacy Xen)</th><th>t3.micro (Modern Nitro)</th><th>Engineering Impact</th></tr>
+  <tr><td>vCPUs</td><td>1 vCPU</td><td><strong>2 vCPUs</strong></td><td>Multithreaded Ansible runs &amp; parallel package builds</td></tr>
+  <tr><td>Memory</td><td>1 GiB</td><td>1 GiB</td><td>Adequate for Docker daemon + single application</td></tr>
+  <tr><td>Hypervisor</td><td>Xen paravirtualized</td><td><strong>AWS Nitro Card</strong></td><td>Hardware-isolated security &amp; faster disk I/O</td></tr>
+  <tr><td>Baseline CPU</td><td>10%</td><td><strong>20% (10% per vCPU)</strong></td><td>2x higher baseline compute before credit throttling</td></tr>
+  <tr><td>Hourly Credits</td><td>6 credits/hr</td><td><strong>12 credits/hr (6/vCPU)</strong></td><td>Bursts to 100% CPU during Docker image builds</td></tr>
+  <tr><td>Hourly Price</td><td>$0.0116 / hr</td><td><strong>$0.0104 / hr (~10% cheaper)</strong></td><td>Better performance at lower cost</td></tr>
+</table>
+</div>
+
+<!-- SECTION 2 -->
+<h2 id="dynamic-ami"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>2. Dynamic AMI Resolution with aws_ami</h2>
+
+<p>A classic beginner mistake is hardcoding an Amazon Machine Image ID:</p>
+<div class="code">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">Anti-pattern — Do NOT do this</span><span class="tag warn">ANTI-PATTERN</span></div>
+  <pre><code><span class="c"># Fragile: This AMI ID only exists in us-east-1 and will be deprecated by Canonical in months</span>
+ami = <span class="s2">"ami-0c7217cdde317cfec"</span></code></pre>
+</div>
+
+<p>In Phase 1, we use an automated <code>aws_ami</code> data source that dynamically queries Canonical's official AWS account:</p>
+
+<div class="code">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">phase1/main.tf — aws_ami data source</span>
+    <span class="tag">TERRAFORM</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code><span class="k">data</span> <span class="s2">"aws_ami"</span> <span class="s2">"ubuntu"</span> {
+  most_recent = <span class="k">true</span>
+  owners      = [<span class="s2">"099720109477"</span>] <span class="c"># Canonical's official, verified AWS Account ID</span>
+
+  filter {
+    name   = <span class="s2">"name"</span>
+    values = [<span class="s2">"ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"</span>]
+  }
+
+  filter {
+    name   = <span class="s2">"virtualization-type"</span>
+    values = [<span class="s2">"hvm"</span>]
+  }
+
+  filter {
+    name   = <span class="s2">"architecture"</span>
+    values = [<span class="s2">"x86_64"</span>]
+  }
+}</code></pre>
+</div>
+
+<div class="callout ok">
+  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+  <div>
+    <b class="t">Why This is Enterprise Standard</b>
+    <p>1. <strong>Region portability:</strong> You can change <code>region = "eu-west-1"</code> and Terraform will resolve the correct regional AMI ID with zero code edits.<br>
+    2. <strong>Security patches:</strong> Whenever Canonical publishes a refreshed Ubuntu 24.04 release image with kernel and security patches, a future <code>terraform plan</code> will alert you to the update.<br>
+    3. <strong>Supply chain integrity:</strong> Filtering strictly by <code>owners = ["099720109477"]</code> guarantees you never accidentally boot a malicious community AMI containing backdoors.</p>
+  </div>
+</div>
+
+<!-- SECTION 3 -->
+<h2 id="imdsv2-deep-dive"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>3. The IMDSv1 vs IMDSv2 Security Revolution</h2>
+
+<p class="lead">The Instance Metadata Service (IMDS) runs at link-local address <code>169.254.169.254</code>. It allows code on an EC2 instance to learn its own IP, instance ID, and fetch temporary AWS STS credentials from attached IAM roles.</p>
+
+<p>In 2019, the <strong>Capital One breach</strong> exposed over 100 million customer records. The attacker exploited a <strong>Server-Side Request Forgery (SSRF)</strong> vulnerability in an open-source web application. The application was tricked into making an HTTP GET request to <code>http://169.254.169.254/latest/meta-data/iam/security-credentials/</code>, dumping the instance's AWS secret access keys directly to the attacker.</p>
+
+<div class="cards">
+  <div class="card" style="--c:var(--rose)">
+    <h4>IMDSv1 Vulnerability Path</h4>
+    <p>Uses simple HTTP GET requests with no session tokens. Any SSRF bug or misconfigured proxy can steal credentials instantly.</p>
+    <div class="anat" style="margin-top:10px;font-size:12px">
+      GET http://169.254.169.254/latest/meta-data/iam/security-credentials/
+      ──► <span class="bad">200 OK (Leaks AccessKeyId &amp; SecretAccessKey!)</span>
+    </div>
+  </div>
+
+  <div class="card" style="--c:var(--mint)">
+    <h4>IMDSv2 Defense in Depth</h4>
+    <p>Session-oriented. Requires a PUT request with a mandatory TTL header to generate a cryptographically signed token first.</p>
+    <div class="anat" style="margin-top:10px;font-size:12px">
+      GET http://169.254.169.254/latest/meta-data/
+      ──► <span class="ok">401 Unauthorized (SSRF Attempt Neutralized!)</span>
+    </div>
+  </div>
+</div>
+
+<p>Here is how we enforce IMDSv2 in <a href="file:///c:/Users/Zeetha%20Robotics/Documents/Vectra-Automation/IOTB-TECH-PROJECTS/phase1/main.tf">phase1/main.tf</a>:</p>
+
+<div class="code">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">phase1/main.tf — metadata_options</span>
+    <span class="tag">TERRAFORM</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code>  metadata_options {
+    http_endpoint               = <span class="s2">"enabled"</span>
+    http_tokens                 = <span class="s2">"required"</span> <span class="c"># Disables IMDSv1 completely</span>
+    http_put_response_hop_limit = 1          <span class="c"># Prevents container/proxy SSRF packet relay</span>
+  }</code></pre>
+</div>
+
+<div class="callout warn">
+  <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <div>
+    <b class="t">The Critical Role of http_put_response_hop_limit = 1</b>
+    <p>When an IP packet crosses a network bridge or Layer 3 boundary (such as Docker bridge networking <code>docker0</code>), its IP Time-To-Live (TTL / hop count) decrements by 1. Setting <code>http_put_response_hop_limit = 1</code> means the response packet can ONLY reach processes running in the host network namespace. If an application inside a Docker container tries to generate an IMDSv2 token, the response TTL expires at the bridge and the packet is dropped!</p>
+  </div>
+</div>
+
+<!-- SECTION 4 -->
+<h2 id="ebs-encryption"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></span>4. Encrypted EBS gp3 Storage Engineering</h2>
+
+<p>Every server needs reliable, fast root storage. In Phase 1, we configure a 20 GiB <strong>General Purpose SSD (gp3)</strong> volume:</p>
+
+<div class="code">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">phase1/main.tf — root_block_device</span>
+    <span class="tag">TERRAFORM</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code>  root_block_device {
+    volume_type           = <span class="s2">"gp3"</span>
+    volume_size           = 20
+    encrypted             = <span class="k">true</span> <span class="c"># KMS AES-256 encryption at rest</span>
+    delete_on_termination = <span class="k">true</span> <span class="c"># Automatically clean up storage on terraform destroy</span>
+  }</code></pre>
+</div>
+
+<p>Key architectural properties:</p>
+<ul>
+  <li><strong>KMS Hardware Encryption:</strong> AWS Key Management Service encrypts data at rest, in-flight between EC2 and EBS, and in all snapshots created from the volume using AES-256. Because decryption happens on the dedicated Nitro card, there is zero CPU overhead on the Ubuntu OS.</li>
+  <li><strong>gp3 Performance:</strong> Baseline performance is <strong>3,000 IOPS and 125 MB/s</strong>, ensuring rapid Docker daemon startup, fast image layer untarring, and smooth apt upgrades.</li>
+  <li><strong>delete_on_termination = true:</strong> Prevents "zombie EBS volumes" from being orphaned in your AWS account when you run <code>terraform destroy</code>, avoiding unnecessary billing charges.</li>
+</ul>
+
+<!-- SECTION 5 -->
+<h2 id="iam-least-privilege"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>5. IAM Least Privilege: The Zero-Permission Pattern</h2>
+
+<p>In Phase 1, the instance does not make any AWS API calls. So why did we create an IAM role and instance profile?</p>
+
+<div class="code">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">phase1/main.tf — IAM Resources</span>
+    <span class="tag">TERRAFORM</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code><span class="k">data</span> <span class="s2">"aws_iam_policy_document"</span> <span class="s2">"ec2_assume"</span> {
+  statement {
+    effect  = <span class="s2">"Allow"</span>
+    actions = [<span class="s2">"sts:AssumeRole"</span>]
+    principals {
+      type        = <span class="s2">"Service"</span>
+      identifiers = [<span class="s2">"ec2.amazonaws.com"</span>]
+    }
+  }
+}
+
+<span class="k">resource</span> <span class="s2">"aws_iam_role"</span> <span class="s2">"ec2"</span> {
+  name               = <span class="s2">"${var.project_name}-${var.environment}-ec2-role"</span>
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume.json
+  <span class="c"># Zero policies attached — least privilege baseline!</span>
+}
+
+<span class="k">resource</span> <span class="s2">"aws_iam_instance_profile"</span> <span class="s2">"ec2"</span> {
+  name = <span class="s2">"${var.project_name}-${var.environment}-ec2-profile"</span>
+  role = aws_iam_role.ec2.name
+}</code></pre>
+</div>
+
+<p><strong>The Architectural Rationale:</strong></p>
+<p>If you launch an EC2 instance without an IAM instance profile, attaching one later via Terraform often causes instance replacement or complex lifecycle recreation depending on AWS API states. By establishing an <strong>empty, zero-permission role</strong> now:</p>
+<ol>
+  <li>We adhere to <strong>least privilege</strong>: a compromised Phase 1 instance has zero permissions to touch S3, DynamoDB, or IAM.</li>
+  <li>In Phase 2, when we need to pull private container images from Amazon ECR, we simply attach <code>AmazonEC2ContainerRegistryReadOnly</code> to this existing role. The instance gains ECR permissions dynamically with <strong>zero downtime and zero instance rebuilds</strong>!</li>
+</ol>
+
+<!-- SECTION 6 -->
+<h2 id="ed25519-keys"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="8" cy="15" r="4"/><path d="M10.85 12.15L19 4M18 5l2 2M15 8l2 2"/></svg></span>6. Ed25519 Cryptographic SSH Key Management</h2>
+
+<p>Legacy systems still use 2048-bit or 4096-bit RSA keys. In Phase 1, we use <strong>Ed25519 (Edwards-curve Digital Signature Algorithm)</strong>:</p>
+
+<div class="tbl">
+<table>
+  <tr><th>Feature</th><th>RSA 4096</th><th>Ed25519 (Phase 1)</th></tr>
+  <tr><td>Security Strength</td><td>~128 bits</td><td><strong>~128 bits</strong></td></tr>
+  <tr><td>Public Key Length</td><td>~736 characters (slow to transmit)</td><td><strong>68 characters (compact &amp; clean)</strong></td></tr>
+  <tr><td>Signature Speed</td><td>Slower</td><td><strong>Extremely fast</strong></td></tr>
+  <tr><td>Side-Channel Immunity</td><td>Vulnerable to timing attacks if unblinded</td><td><strong>Constant-time by design</strong></td></tr>
+</table>
+</div>
+
+<p>How Terraform ingests your public key:</p>
+<div class="code">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">phase1/main.tf — aws_key_pair</span>
+    <span class="tag">TERRAFORM</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code><span class="k">resource</span> <span class="s2">"aws_key_pair"</span> <span class="s2">"main"</span> {
+  key_name   = <span class="s2">"${var.project_name}-${var.environment}-key"</span>
+  public_key = file(pathexpand(var.ssh_public_key_path))
+}</code></pre>
+</div>
+
+<p><strong>Absolute Security Rule:</strong> <code>file(pathexpand(...))</code> reads ONLY the <code>.pub</code> public key file from your local disk. Your private key (<code>phase1-key</code>) NEVER enters Terraform configuration, NEVER enters <code>terraform.tfstate</code>, and NEVER leaves your local machine.</p>
+
+<!-- SECTION 7 -->
+<h2 id="instance-code"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>7. Line-by-Line EC2 Instance Anatomy</h2>
+
+<p>Here is the full <code>aws_instance.main</code> block in <a href="file:///c:/Users/Zeetha%20Robotics/Documents/Vectra-Automation/IOTB-TECH-PROJECTS/phase1/main.tf">phase1/main.tf</a>:</p>
+
+<div class="code">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">phase1/main.tf</span>
+    <span class="tag">TERRAFORM</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code><span class="k">resource</span> <span class="s2">"aws_instance"</span> <span class="s2">"main"</span> {
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = var.instance_type
+  subnet_id              = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.ec2.id]
+  key_name               = aws_key_pair.main.key_name
+  iam_instance_profile   = aws_iam_instance_profile.ec2.name
+
+  metadata_options {
+    http_endpoint               = <span class="s2">"enabled"</span>
+    http_tokens                 = <span class="s2">"required"</span>
+    http_put_response_hop_limit = 1
+  }
+
+  root_block_device {
+    volume_type           = <span class="s2">"gp3"</span>
+    volume_size           = 20
+    encrypted             = <span class="k">true</span>
+    delete_on_termination = <span class="k">true</span>
+  }
+
+  tags = { Name = <span class="s2">"${var.project_name}-${var.environment}-server"</span> }
+}</code></pre>
+</div>
+
+<!-- SECTION 8 -->
+<h2 id="failures"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="12 8 8 12 12 16 12 8"/><line x1="16" y1="12" x2="12" y2="12"/></svg></span>8. Production Failures, Forensics, and Triage</h2>
+
+<!-- SCENARIO 1 -->
+<h3 id="sc1">Scenario 1: Testing and Proving IMDSv2 SSRF Immunity</h3>
+
+<div class="callout info">
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div>
+    <b class="t">Experiment &amp; Verification</b>
+    <p>How do you prove to an enterprise security auditor that your instance is immune to classic IMDSv1 SSRF attacks?</p>
+  </div>
+</div>
+
+<details>
+<summary>View Verification Runbook &amp; Output</summary>
+<p>Log into your EC2 server and attempt a raw GET request:</p>
+<div class="term">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">EC2 Bash — Raw GET Attempt</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+  <pre><code><span class="p">ubuntu@phase1-server:~$ </span>curl -i http://169.254.169.254/latest/meta-data/
+<span class="bad">HTTP/1.1 401 Unauthorized</span>
+Content-Type: text/html
+Date: Mon, 19 Oct 2026 12:00:00 GMT
+Connection: close
+
+&lt;html&gt;&lt;head&gt;&lt;title&gt;401 - Unauthorized&lt;/title&gt;&lt;/head&gt;&lt;body&gt;Unauthorized&lt;/body&gt;&lt;/html&gt;</code></pre>
+</div>
+
+<p>Now perform the legitimate IMDSv2 token flow:</p>
+<div class="term">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">EC2 Bash — IMDSv2 Two-Step Authentication</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+  <pre><code><span class="c"># Step 1: Request signed session token valid for 6 hours (21600 seconds)</span>
+<span class="p">ubuntu@phase1-server:~$ </span>TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
+    -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+
+<span class="c"># Step 2: Query metadata with the token</span>
+<span class="p">ubuntu@phase1-server:~$ </span>curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id
+<span class="ok">i-086381ab281249fa1</span></code></pre>
+</div>
+<p>Because an SSRF attacker cannot force a server to issue custom <code>PUT</code> requests with arbitrary custom headers, the exploit path is completely blocked.</p>
+</details>
+
+<!-- SCENARIO 2 -->
+<h3 id="sc2">Scenario 2: The Unprotected Private Key Permission Error</h3>
+
+<div class="callout bad">
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div>
+    <b class="t">Symptom</b>
+    <p>You try to connect to your instance with <code>ssh -i ~/.ssh/phase1-key ubuntu@54.89.144.201</code>, but OpenSSH aborts immediately with a scary error: <code>WARNING: UNPROTECTED PRIVATE KEY FILE! Permissions 0644 for '/home/user/.ssh/phase1-key' are too open. It is required that your private key files are NOT accessible by others.</code></p>
+  </div>
+</div>
+
+<details>
+<summary>View Fix for Linux, macOS &amp; Windows</summary>
+<p>OpenSSH enforces strict POSIX filesystem permissions. If group or world can read your private key, SSH refuses to use it.</p>
+
+<p><b>On Linux / macOS:</b></p>
+<div class="term">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">Bash</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+  <pre><code><span class="p">$ </span>chmod 600 ~/.ssh/phase1-key
+<span class="p">$ </span>chmod 644 ~/.ssh/phase1-key.pub</code></pre>
+</div>
+
+<p><b>On Windows (PowerShell using icacls):</b></p>
+<div class="term">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">PowerShell</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+  <pre><code><span class="p">PS> </span>icacls $HOME\.ssh\phase1-key /inheritance:r
+<span class="p">PS> </span>icacls $HOME\.ssh\phase1-key /grant:r "$($env:USERNAME):(R)"</code></pre>
+</div>
+</details>
+
+<!-- SCENARIO 3 -->
+<h3 id="sc3">Scenario 3: Unencrypted Snapshot Drift Detection</h3>
+
+<div class="callout warn">
+  <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <div>
+    <b class="t">Symptom</b>
+    <p>A cloud engineer manually creates an unencrypted volume snapshot before maintenance. When the backup is restored, compliance audits fail because customer data is now sitting on an unencrypted volume.</p>
+  </div>
+</div>
+
+<details>
+<summary>View Remediation &amp; Account-Level Enforcement</summary>
+<p>To prevent unencrypted volumes from ever being created in your AWS account, enable <strong>Account-Level EBS Encryption by Default</strong>:</p>
+
+<div class="term">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">AWS CLI</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+  <pre><code><span class="p">$ </span>aws ec2 enable-ebs-encryption-by-default --region us-east-1
+{
+    "EbsEncryptionByDefault": true
+}</code></pre>
+</div>
+<p>Once enabled, any volume created in the region (whether via Terraform, CLI, or Console) will automatically be encrypted using AWS KMS.</p>
+</details>
+
+<!-- SECTION 9 -->
+<h2 id="checklist"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>9. Host Hardening Best Practices Checklist</h2>
+
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Hardening Control</th><th>Implementation in Phase 1</th></tr>
+  <tr><td>1</td><td>Enforce IMDSv2</td><td><code>http_tokens = "required"</code> in metadata options.</td></tr>
+  <tr><td>2</td><td>Hop Limit to 1</td><td><code>http_put_response_hop_limit = 1</code> prevents container SSRF relay.</td></tr>
+  <tr><td>3</td><td>Encrypted EBS Storage</td><td><code>encrypted = true</code> on root block device.</td></tr>
+  <tr><td>4</td><td>Least-Privilege IAM</td><td>Empty role baseline ready for Phase 2 ECR attachment.</td></tr>
+  <tr><td>5</td><td>Ed25519 Cryptography</td><td>Modern elliptic curve SSH key; private key never committed.</td></tr>
+  <tr><td>6</td><td>Dynamic Official AMI</td><td>Filtered by Canonical Account ID <code>099720109477</code>.</td></tr>
+  <tr><td>7</td><td>Delete on Termination</td><td>Prevents orphaned EBS storage costs on teardown.</td></tr>
+</table>
+</div>
+
+<!-- SECTION 10 -->
+<h2 id="exercises"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.7 6.3a4 4 0 0 0 5 5L21 12.6a2 2 0 0 1 0 2.8l-5.6 5.6a2 2 0 0 1-2.8 0L3 11.4a2 2 0 0 1 0-2.8L8.6 3a2 2 0 0 1 2.8 0z" transform="translate(0 0) scale(.9) translate(1.3 1.3)"/></svg></span>10. Hands-on Muscle Memory Exercises</h2>
+
+<ol class="steps">
+  <li>
+    <b>Verify Live Volume Encryption</b>
+    <p>SSH into the instance and run <code>lsblk -f</code>. Inspect the root device <code>/dev/nvme0n1p1</code>.</p>
+  </li>
+
+  <li>
+    <b>Query Instance Metadata Options with AWS CLI</b>
+    <p>Run <code>aws ec2 describe-instances --instance-ids &lt;instance_id&gt; --query "Reservations[0].Instances[0].MetadataOptions"</code>. Confirm <code>HttpTokens</code> is <code>required</code>.</p>
+  </li>
+
+  <li>
+    <b>Inspect IAM Instance Profile Association</b>
+    <p>Run <code>aws ec2 describe-iam-instance-profile-associations --filters "Name=instance-id,Values=&lt;instance_id&gt;"</code>. Verify the role matches <code>phase1-dev-ec2-role</code>.</p>
+  </li>
+</ol>
+
+<!-- SECTION 11 -->
+<h2 id="next"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>11. What Comes Next</h2>
+
+<p>Now that our compute host is provisioned and securely locked down, we move to <strong>Part 3: Automated Configuration Management with Ansible and Dynamic Inventory</strong>. We will bridge Terraform's output to Ansible, solve the cloud-init dpkg lock race condition, and install Docker CE from the official Docker repository.</p>
+
+<div class="pager">
+  <a href="part-1-aws-vpc-infrastructure-terraform.html">
+    <small>← Previous Chapter</small>
+    VPC, Subnets &amp; Security Groups
+  </a>
+  <a class="r" href="part-3-ansible-automation-docker.html">
+    <small>Next Chapter →</small>
+    Ansible Automation &amp; Docker Host
+  </a>
+</div>
+
+</article>
+</div></div>
+
+<footer><div class="wrap">ZeetaFin Cloud Infrastructure · Phase 1 Lab Series · Abdulmuiz · <a href="https://github.com/Devzane">GitHub</a></div></footer>
+
+<script>
+// Progress bar
+const bar = document.querySelector('.progress i');
+window.addEventListener('scroll', () => {
+  const h = document.documentElement;
+  bar.style.width = ((h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100) + '%';
+});
+
+// TOC active tracker
+const links = [...document.querySelectorAll('nav.toc a')];
+const obs = new IntersectionObserver(es => {
+  es.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('on'));
+      const a = links.find(l => l.getAttribute('href') === '#' + e.target.id);
+      if (a) a.classList.add('on');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+document.querySelectorAll('article h2[id], article h3[id]').forEach(h => obs.observe(h));
+
+// Click-to-Copy
+document.querySelectorAll('.copy').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const parent = btn.closest('.code, .term');
+    const target = parent ? parent.querySelector('pre code, pre') : null;
+    if (target) {
+      navigator.clipboard.writeText(target.innerText).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+  });
+});
+</script>
+</body></html>

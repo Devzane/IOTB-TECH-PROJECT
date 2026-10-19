@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AWS VPC, Subnets, and Security Groups with Terraform — ZeetaFin Phase 1 Lab</title>
+<meta name="description" content="Part 1 of the ZeetaFin Phase 1 Infrastructure Lab: build an isolated AWS network, public subnet, route tables, internet gateway, and hardened /32 security groups with Terraform.">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f8fafc; --surface:#ffffff; --surface-2:#f1f5f9; --ink:#0f172a; --ink-2:#334155; --muted:#64748b; --line:#e2e8f0;
+  --c1:#6366f1; --c2:#0ea5e9; --c3:#f59e0b; --c4:#10b981; --c5:#8b5cf6; --c6:#ec4899;
+  --accent:#4f46e5; --accent-ink:#4338ca; --accent-soft:#eef2ff;
+  --mint:#10b981; --mint-soft:#ecfdf5; --amber:#f59e0b; --amber-soft:#fffbeb; --rose:#ef4444; --rose-soft:#fef2f2;
+  --night:#0a0f1d; --night-2:#11192e; --night-line:#1e293b; --night-ink:#f8fafc; --night-muted:#94a3b8;
+  --sans:"DM Sans","Helvetica Neue",Arial,sans-serif; --head:"Sora","DM Sans",Arial,sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --shadow:0 1px 3px rgba(15,23,42,.08),0 10px 30px rgba(15,23,42,.04);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#070b14; --surface:#0e1526; --surface-2:#141f38; --ink:#f8fafc; --ink-2:#cbd5e1; --muted:#8899b5; --line:#1d2945;
+    --accent:#818cf8; --accent-ink:#a5b4fc; --accent-soft:#182042;
+    --mint:#34d3b4; --mint-soft:#062d25; --amber:#fbbf24; --amber-soft:#332205; --rose:#f87171; --rose-soft:#341318;
+    --shadow:0 1px 3px rgba(0,0,0,.5),0 14px 40px rgba(0,0,0,.45);
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:radial-gradient(900px 500px at 100% 0,color-mix(in srgb,var(--c1) 8%,transparent),transparent 70%),radial-gradient(800px 500px at 0 30%,color-mix(in srgb,var(--c2) 7%,transparent),transparent 70%),var(--bg);color:var(--ink-2);font-family:var(--sans);font-size:18px;line-height:1.72;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:var(--accent-ink);text-underline-offset:3px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 28px}
+.progress{position:fixed;inset:0 0 auto 0;height:5px;z-index:50;background:transparent}
+.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--c1),var(--c2),var(--c4),var(--c3),var(--c6))}
+
+/* Hero */
+.hero{background:var(--night);color:var(--night-ink);position:relative;overflow:hidden;isolation:isolate}
+.hero::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(750px 380px at 90% -10%,rgba(99,102,241,.65),transparent 62%),radial-gradient(650px 380px at 10% 110%,rgba(14,165,233,.45),transparent 62%),radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.2px) 0 0/26px 26px}
+.hero .wrap{padding-top:44px;padding-bottom:44px}
+.sbar{display:flex;gap:8px;margin:0 0 30px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.sbar::-webkit-scrollbar{display:none}
+@media (min-width:900px){.sbar{flex-wrap:wrap;overflow:visible}}
+.sbar .p{display:inline-flex;align-items:center;gap:9px;flex:none;padding:6px 14px 6px 6px;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);color:#cbd5e1;text-decoration:none;font:600 13px var(--head);transition:all .18s}
+.sbar .p i{width:24px;height:24px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font-style:normal;font-size:12px}
+.sbar .p:hover{background:rgba(255,255,255,.14);color:#fff}
+.sbar .p.on{background:#fff;color:#0a0f1d;border-color:#fff}
+
+h1{font-family:var(--head);font-weight:800;font-size:clamp(36px,5.4vw,66px);line-height:1.06;letter-spacing:-.035em;margin:0;max-width:18ch;color:#fff}
+.dek{font-size:clamp(18px,2vw,22px);line-height:1.55;color:#cbd5e1;max-width:56ch;margin:20px 0 0}
+.meta{display:flex;flex-wrap:wrap;gap:8px 22px;margin:24px 0 0;font-family:var(--head);font-size:13.5px;color:var(--night-muted)}
+.meta span{display:inline-flex;gap:8px;align-items:center}
+.tools{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 0}
+.tool{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:12px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);color:#fff;font:600 13.5px var(--head)}
+.hero-art{margin-top:34px;border:1px solid rgba(255,255,255,.2);border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));padding:12px;box-shadow:0 30px 80px rgba(0,0,0,.4);backdrop-filter:blur(4px)}
+.hero-art>svg{display:block;width:100%;height:auto}
+
+/* Layout */
+.layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:64px;align-items:start;padding-top:56px}
+nav.toc{position:sticky;top:24px;font-family:var(--head);font-size:13.5px;max-height:calc(100vh - 48px);overflow:auto}
+nav.toc h2{font-size:12px;font-weight:700;color:var(--muted);margin:0 0 12px;letter-spacing:.04em;text-transform:uppercase}
+nav.toc ol{list-style:none;margin:0;padding:0;border-left:1.5px solid var(--line)}
+nav.toc a{display:block;padding:6px 0 6px 16px;margin-left:-1.5px;border-left:1.5px solid transparent;color:var(--muted);text-decoration:none;line-height:1.35;transition:color .15s}
+nav.toc a:hover{color:var(--ink)}
+nav.toc a.on{color:var(--accent);border-left-color:var(--accent);font-weight:700}
+nav.toc li.sub a{padding-left:30px;font-size:12.5px}
+.sidecard{margin-top:26px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface);font-size:13px;line-height:1.5;color:var(--muted);box-shadow:var(--shadow)}
+.sidecard b{display:block;color:var(--ink);font-family:var(--head);font-size:13.5px;margin-bottom:4px}
+
+article{min-width:0;max-width:780px}
+article h2{font-family:var(--head);font-weight:700;font-size:clamp(28px,3.4vw,38px);line-height:1.18;letter-spacing:-.025em;margin:88px 0 16px;color:var(--ink);scroll-margin-top:20px;display:flex;gap:14px;align-items:center;padding-bottom:14px;border-bottom:2px solid var(--line)}
+article h2 .hi{width:48px;height:48px;border-radius:14px;background:var(--hc,var(--c1));color:#fff;display:grid;place-items:center;flex:none;box-shadow:0 8px 20px color-mix(in srgb,var(--hc,var(--c1)) 35%,transparent)}
+article h2 .hi svg{width:26px;height:26px;stroke-width:2}
+article h2:first-child{margin-top:0}
+article h2:nth-of-type(6n+1){--hc:var(--c1)}article h2:nth-of-type(6n+2){--hc:var(--c2)}article h2:nth-of-type(6n+3){--hc:var(--c4)}article h2:nth-of-type(6n+4){--hc:var(--c3)}article h2:nth-of-type(6n+5){--hc:var(--c5)}article h2:nth-of-type(6n+6){--hc:var(--c6)}
+
+article h3{font-family:var(--head);font-weight:700;font-size:21px;line-height:1.3;margin:48px 0 10px;color:var(--ink);scroll-margin-top:20px;letter-spacing:-.01em;background:linear-gradient(90deg,color-mix(in srgb,var(--c1) 12%,transparent),transparent 85%);border-left:6px solid var(--c1);padding:12px 18px;border-radius:0 14px 14px 0}
+article p{margin:0 0 1.15em}
+article ul,article ol{padding-left:1.3em;margin:0 0 1.25em}
+article li{margin:.4em 0}
+article strong,article b{color:var(--ink);font-weight:700}
+code{font-family:var(--mono);font-size:.84em;background:color-mix(in srgb,var(--c1) 12%,transparent);color:var(--accent-ink);padding:.12em .45em;border-radius:6px;font-weight:500}
+.lead{font-size:1.15em;color:var(--ink);line-height:1.68}
+
+/* Code & Term */
+.code,.term{margin:24px 0 28px;border-radius:16px;overflow:hidden;background:var(--night);border:1px solid #223055;box-shadow:0 14px 40px rgba(10,15,29,.25)}
+.bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(180deg,#152042,#0d152d);border-bottom:1px solid #1f2c4e;font-family:var(--mono);font-size:12.5px;color:#8f9cb8}
+.bar .dots{display:flex;gap:6px}.bar .dots i{width:10px;height:10px;border-radius:50%;display:block}
+.bar .dots i:nth-child(1){background:#ff5f57}.bar .dots i:nth-child(2){background:#febc2e}.bar .dots i:nth-child(3){background:#28c840}
+.bar .fn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.bar .tag{font-family:var(--head);font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:#1a2750;color:#a5b4fc}
+.bar .tag.exp{background:#3a2d12;color:#f0b24a}.bar .tag.warn{background:#3a1818;color:#f87171}
+.copy{all:unset;cursor:pointer;display:inline-flex;gap:6px;align-items:center;font-family:var(--head);font-size:12px;color:#a5b4fc;padding:4px 9px;border-radius:7px;border:1px solid #273766;transition:all .15s}
+.copy:hover{background:#1a2750;color:#fff}.copy.copied{color:#34d3b4;border-color:#34d3b4;background:rgba(52,211,180,.1)}
+.copy svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+pre{margin:0;font-family:var(--mono);font-size:14px;line-height:1.68;color:#dce5f8;padding:16px 18px;overflow-x:auto;tab-size:2}
+pre code{background:none;color:inherit;padding:0;font-size:inherit}
+.k{color:#818cf8;font-weight:600}.s2{color:#6ee7b7}.c{color:#64748b;font-style:italic}.n{color:#fcd34d}.p{color:#94a3b8;user-select:none}
+.ok{color:#34d3b4}.bad{color:#f87171}.dim{color:#64748b}.b{font-weight:700;color:#fff}.warn{color:#fbbf24}
+
+/* Callouts */
+.callout{display:flex;gap:14px;padding:18px 20px;border-radius:16px;margin:28px 0;border-left-width:6px;border-left-style:solid;box-shadow:var(--shadow);font-size:16px;line-height:1.62;color:var(--ink-2)}
+.callout>svg{width:32px;height:32px;padding:6px;border-radius:50%;color:#fff;margin-top:2px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.callout b.t{display:block;font-family:var(--head);color:var(--ink);margin-bottom:3px;font-weight:700}
+.callout p{margin:0 0 .5em}.callout p:last-child{margin:0}
+.callout.info{background:var(--accent-soft);border-left-color:var(--accent)}.callout.info>svg{background:var(--accent)}
+.callout.warn{background:var(--amber-soft);border-left-color:var(--amber)}.callout.warn>svg{background:var(--amber)}
+.callout.ok{background:var(--mint-soft);border-left-color:var(--mint)}.callout.ok>svg{background:var(--mint)}
+.callout.bad{background:var(--rose-soft);border-left-color:var(--rose)}.callout.bad>svg{background:var(--rose)}
+
+/* Tables */
+.tbl{overflow-x:auto;margin:24px 0 28px;border:1px solid color-mix(in srgb,var(--c1) 22%,var(--line));border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;font-size:15px;font-family:var(--sans)}
+th,td{text-align:left;padding:12px 18px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55}
+tr:last-child td{border-bottom:0}
+th{font-family:var(--head);font-weight:700;font-size:13.5px;color:var(--accent-ink);background:color-mix(in srgb,var(--c1) 14%,var(--surface));border-bottom:2px solid color-mix(in srgb,var(--c1) 32%,var(--line))}
+tr:nth-child(even) td{background:color-mix(in srgb,var(--surface-2) 65%,var(--surface))}
+td:first-child{color:var(--ink);font-weight:600;border-right:1px solid var(--line)}
+
+/* Details */
+details{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin:24px 0;padding:0 20px;box-shadow:var(--shadow);border-left:5px solid var(--c2)}
+details summary{font-family:var(--head);font-weight:700;font-size:16px;cursor:pointer;padding:16px 0;color:var(--ink);list-style:none;display:flex;gap:10px;align-items:center}
+details summary::-webkit-details-marker{display:none}
+details summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s}
+details[open] summary::after{transform:rotate(-135deg)}
+details[open] summary{border-bottom:1px solid var(--line);margin-bottom:14px}
+details p:last-child{margin-bottom:16px}
+
+/* Steps */
+.steps{list-style:none;padding:0;margin:28px 0;counter-reset:s}
+.steps>li{counter-increment:s;position:relative;padding:0 0 28px 58px;margin:0}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:38px;height:38px;border-radius:50%;background:var(--ink);color:var(--surface);font-family:var(--head);font-weight:700;font-size:15px;display:grid;place-items:center}
+.steps>li::after{content:"";position:absolute;left:18.5px;top:44px;bottom:6px;width:1.5px;background:var(--line)}
+.steps>li:last-child{padding-bottom:0}.steps>li:last-child::after{display:none}
+.steps>li>b:first-child{display:block;font-family:var(--head);font-size:17px;color:var(--ink);margin:6px 0 4px}
+
+/* Cards & Grid */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:26px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 16px 16px;box-shadow:var(--shadow);border-top:4px solid var(--c)}
+.card h4{margin:0 0 4px;font-family:var(--head);font-size:16px;color:var(--ink);font-weight:700}
+.card p{margin:0;font-size:14.5px;line-height:1.52;color:var(--muted)}
+
+/* Anatomy */
+.anat{font-family:var(--mono);font-size:14px;line-height:2.2;background:var(--night);color:#dce5f8;border-radius:16px;padding:18px 22px;overflow-x:auto;margin:22px 0 10px;border:1px solid #1f2c4e}
+.anat .a{padding:3px 7px;border-radius:6px;border-bottom:2px solid}
+.a-type{background:rgba(99,102,241,.2);border-color:#818cf8}
+.a-name{background:rgba(16,185,129,.2);border-color:#34d3b4}
+.a-arg{background:rgba(245,158,11,.2);border-color:#fbbf24}
+.a-ref{background:rgba(239,68,68,.2);border-color:#f87171}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-family:var(--head);font-size:13px;color:var(--muted);margin:0 0 28px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:0}
+
+/* VS grid */
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:26px 0}
+.vs .card{padding:20px}.vs .card ol{margin:8px 0 10px;padding-left:1.1em;font-size:15px}
+.vs .res{display:flex;gap:8px;align-items:center;font-family:var(--head);font-size:13.5px;font-weight:700;margin-top:10px}
+.vs .res svg{width:18px;height:18px;stroke-width:2.5}.res.no{color:var(--rose)}.res.yes{color:var(--mint)}
+
+/* Pager */
+.pager{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:60px 0 0}
+.pager a{display:block;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:16px 20px;text-decoration:none;color:var(--ink);box-shadow:var(--shadow);font-family:var(--head);font-weight:700;transition:border-color .15s}
+.pager a small{display:block;font-weight:500;color:var(--muted);font-size:12.5px;margin-bottom:4px}
+.pager a:hover{border-color:var(--accent)}.pager .r{text-align:right}
+footer{margin-top:80px;border-top:1px solid var(--line);padding:32px 0 64px;font-family:var(--head);font-size:14px;color:var(--muted)}
+
+/* Responsive */
+@media(max-width:960px){
+  .layout{grid-template-columns:1fr;gap:0;padding-top:34px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px}
+  nav.toc ol{display:flex;flex-wrap:wrap;gap:2px 16px;border:0}
+  nav.toc a,nav.toc li.sub a{padding:4px 0;border:0;margin:0}
+  nav.toc li.sub,.sidecard{display:none}
+  .vs{grid-template-columns:1fr}
+}
+@media(max-width:600px){body{font-size:17px}.wrap{padding:0 18px}pre{font-size:12.5px}article h2 .hi{display:none}.pager{grid-template-columns:1fr}}
+</style></head><body>
+<div class="progress"><i></i></div>
+
+<!-- ===== HERO ===== -->
+<header class="hero"><div class="wrap">
+<nav class="sbar" aria-label="Lab chapters">
+  <a class="p on" href="part-1-aws-vpc-infrastructure-terraform.html" style="--c:#6366f1" aria-current="page"><i>1</i><span>VPC &amp; Terraform</span></a>
+  <a class="p" href="part-2-ec2-iam-imdsv2-hardening.html" style="--c:#0ea5e9"><i>2</i><span>EC2 &amp; IMDSv2</span></a>
+  <a class="p" href="part-3-ansible-automation-docker.html" style="--c:#f59e0b"><i>3</i><span>Ansible &amp; Docker</span></a>
+  <a class="p" href="part-4-idempotency-testing-troubleshooting.html" style="--c:#10b981"><i>4</i><span>Idempotency &amp; Triage</span></a>
+</nav>
+
+<h1>AWS VPC, Subnets, and Security Groups with Terraform</h1>
+<p class="dek">The foundation of modern cloud engineering: designing an isolated AWS network, subnets, route tables, internet gateways, and a hardened single-operator /32 security group with declarative Terraform code.</p>
+
+<p class="meta">
+  <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Oct 2026</span>
+  <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ~45 min read</span>
+  <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 0 0 5 5L21 12.6a2 2 0 0 1 0 2.8l-5.6 5.6a2 2 0 0 1-2.8 0L3 11.4a2 2 0 0 1 0-2.8L8.6 3a2 2 0 0 1 2.8 0z" transform="translate(0 0) scale(.9) translate(1.3 1.3)"/></svg> ~60 min hands-on</span>
+  <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 18.5A2.5 2.5 0 0 1 6.5 16H20"/></svg> AWS VPC, Terraform 1.7+, CIDR, SecGroup</span>
+</p>
+
+<div class="tools">
+  <span class="tool">🌐 AWS VPC 10.0.0.0/16</span>
+  <span class="tool">📦 Public Subnet 10.0.1.0/24</span>
+  <span class="tool">🛡️ Ingress /32 Hardened</span>
+  <span class="tool">💜 Terraform 1.7+</span>
+</div>
+
+<div class="hero-art">
+<svg viewBox="0 0 1080 390" role="img" aria-label="AWS VPC Architecture with Internet Gateway, Route Table, Subnet and Security Group">
+  <defs>
+    <linearGradient id="g-vpc" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e1b4b" stop-opacity="0.8"/><stop offset="100%" stop-color="#0f172a" stop-opacity="0.9"/></linearGradient>
+    <linearGradient id="g-subnet" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e293b" stop-opacity="0.9"/><stop offset="100%" stop-color="#0f172a" stop-opacity="0.95"/></linearGradient>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 1 L 10 5 L 0 9 z" fill="#818cf8"/></marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 1 L 10 5 L 0 9 z" fill="#34d3b4"/></marker>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 1 L 10 5 L 0 9 z" fill="#f87171"/></marker>
+  </defs>
+
+  <!-- AWS Cloud Boundary -->
+  <rect x="260" y="20" width="800" height="350" rx="20" fill="none" stroke="#334155" stroke-width="2" stroke-dasharray="6 6"/>
+  <text x="280" y="48" fill="#94a3b8" font-family="Sora, sans-serif" font-size="13" font-weight="700">☁️ AWS Region · us-east-1</text>
+
+  <!-- VPC -->
+  <rect x="300" y="65" width="730" height="280" rx="16" fill="url(#g-vpc)" stroke="#6366f1" stroke-width="2"/>
+  <text x="325" y="95" fill="#c7d2fe" font-family="Sora, sans-serif" font-size="14" font-weight="700">VPC: phase1-dev-vpc (10.0.0.0/16 · 65,536 IPs)</text>
+
+  <!-- Internet Gateway -->
+  <rect x="325" y="120" width="130" height="60" rx="10" fill="#1e1b4b" stroke="#818cf8" stroke-width="1.8"/>
+  <text x="345" y="145" fill="#fff" font-family="Sora, sans-serif" font-size="12" font-weight="700">Internet GW</text>
+  <text x="340" y="165" fill="#a5b4fc" font-family="JetBrains Mono, monospace" font-size="10.5">igw-main</text>
+
+  <!-- Route Table -->
+  <rect x="325" y="210" width="160" height="75" rx="10" fill="#1e293b" stroke="#0ea5e9" stroke-width="1.8"/>
+  <text x="340" y="235" fill="#fff" font-family="Sora, sans-serif" font-size="12" font-weight="700">Route Table (RT)</text>
+  <text x="340" y="255" fill="#38bdf8" font-family="JetBrains Mono, monospace" font-size="11">0.0.0.0/0 → IGW</text>
+  <text x="340" y="272" fill="#94a3b8" font-family="JetBrains Mono, monospace" font-size="10.5">10.0.0.0/16 → local</text>
+
+  <!-- Public Subnet -->
+  <rect x="520" y="110" width="480" height="210" rx="14" fill="url(#g-subnet)" stroke="#10b981" stroke-width="2"/>
+  <text x="540" y="138" fill="#a7f3d0" font-family="Sora, sans-serif" font-size="13" font-weight="700">Public Subnet: 10.0.1.0/24 (us-east-1a)</text>
+
+  <!-- Security Group -->
+  <rect x="545" y="155" width="430" height="145" rx="12" fill="#0f172a" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5 4"/>
+  <text x="565" y="180" fill="#fde68a" font-family="Sora, sans-serif" font-size="12.5" font-weight="700">Security Group: phase1-dev-ec2-sg</text>
+
+  <!-- Ingress rule label -->
+  <rect x="565" y="195" width="220" height="32" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="1"/>
+  <text x="575" y="216" fill="#fef08a" font-family="JetBrains Mono, monospace" font-size="11">INGRESS: TCP 22 &lt;MY_IP&gt;/32</text>
+
+  <!-- EC2 Instance Inside Subnet & SG -->
+  <rect x="805" y="195" width="150" height="85" rx="10" fill="#166534" stroke="#4ade80" stroke-width="2"/>
+  <text x="825" y="222" fill="#fff" font-family="Sora, sans-serif" font-size="12.5" font-weight="700">🖥️ EC2 Server</text>
+  <text x="820" y="242" fill="#bbf7d0" font-family="JetBrains Mono, monospace" font-size="10.5">t3.micro · Ubuntu</text>
+  <text x="820" y="260" fill="#dcfce7" font-family="JetBrains Mono, monospace" font-size="10">Pub IP: auto-assigned</text>
+
+  <!-- Operator Client on Left -->
+  <rect x="20" y="130" width="190" height="85" rx="14" fill="#1e1b4b" stroke="#818cf8" stroke-width="2"/>
+  <text x="35" y="158" fill="#fff" font-family="Sora, sans-serif" font-size="13.5" font-weight="700">🧑‍💻 Operator Machine</text>
+  <text x="35" y="180" fill="#c7d2fe" font-family="JetBrains Mono, monospace" font-size="11">Your Public IP /32</text>
+  <text x="35" y="198" fill="#94a3b8" font-family="JetBrains Mono, monospace" font-size="10.5">Terraform &amp; SSH Key</text>
+
+  <!-- Attacker on Left -->
+  <rect x="20" y="255" width="190" height="75" rx="14" fill="#3b0710" stroke="#f87171" stroke-width="1.8"/>
+  <text x="35" y="282" fill="#fca5a5" font-family="Sora, sans-serif" font-size="13" font-weight="700">🥷 0.0.0.0/0 Botnets</text>
+  <text x="35" y="304" fill="#f87171" font-family="JetBrains Mono, monospace" font-size="10.5">Port scanners / SSH brute</text>
+
+  <!-- Allowed Flow: Operator -> IGW -> Subnet -> SG -> EC2 -->
+  <path d="M 210 165 L 320 150" fill="none" stroke="#818cf8" stroke-width="2.5" marker-end="url(#arr-blue)"/>
+  <text x="235" y="148" fill="#818cf8" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700">SSH :22</text>
+  <path d="M 455 150 L 540 185" fill="none" stroke="#34d3b4" stroke-width="2" marker-end="url(#arr-green)"/>
+
+  <!-- Blocked Flow: Attacker -> Dropped by SG -->
+  <path d="M 210 295 L 540 250" fill="none" stroke="#f87171" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arr-red)"/>
+  <text x="330" y="315" fill="#f87171" font-family="Sora, sans-serif" font-size="11" font-weight="700">❌ BLOCKED by SG (/32 restriction)</text>
+</svg>
+</div>
+</div></header>
+
+<!-- ===== MAIN ===== -->
+<div class="wrap"><div class="layout">
+
+<!-- TOC -->
+<nav class="toc" aria-label="Contents">
+  <h2>On this page</h2>
+  <ol>
+    <li><a href="#why-custom-vpc">1. Why Custom VPCs Matter</a></li>
+    <li><a href="#cidr-math">2. CIDR &amp; Subnet Math</a></li>
+    <li><a href="#declarative-iac">3. Declarative IaC vs Scripts</a></li>
+    <li><a href="#network-code">4. Line-by-Line Network Code</a></li>
+    <li class="sub"><a href="#s-vpc">aws_vpc</a></li>
+    <li class="sub"><a href="#s-igw">aws_internet_gateway</a></li>
+    <li class="sub"><a href="#s-subnet">aws_subnet</a></li>
+    <li class="sub"><a href="#s-rt">aws_route_table</a></li>
+    <li><a href="#sec-group">5. Hardened Security Group</a></li>
+    <li><a href="#vars-outputs">6. Variables, Outputs &amp; State</a></li>
+    <li><a href="#cli-lifecycle">7. Terraform CLI Lifecycle</a></li>
+    <li><a href="#failures">8. Production Failures &amp; Fixes</a></li>
+    <li class="sub"><a href="#sc1">Scenario 1: 0.0.0.0/0 Breach</a></li>
+    <li class="sub"><a href="#sc2">Scenario 2: Gateway Blackhole</a></li>
+    <li class="sub"><a href="#sc3">Scenario 3: Console Drift</a></li>
+    <li><a href="#checklist">9. Production Checklist</a></li>
+    <li><a href="#exercises">10. Hands-on Exercises</a></li>
+    <li><a href="#next">11. What Comes Next</a></li>
+  </ol>
+  <div class="sidecard">
+    <b>Phase 1 Lab Series</b>
+    AWS EC2 &amp; Docker Provisioning with Terraform &amp; Ansible.
+  </div>
+</nav>
+
+<!-- ARTICLE -->
+<article>
+
+<!-- SECTION 1 -->
+<h2 id="why-custom-vpc"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>1. Why Custom VPCs Matter in Production</h2>
+
+<p class="lead">Every AWS account comes with a "Default VPC" in each region. In beginner tutorials, people deploy straight into the default VPC because it works immediately without extra code. In real production, launching into the default VPC is an immediate red flag.</p>
+
+<p>A <strong>Virtual Private Cloud (VPC)</strong> is your logically isolated software-defined data center inside AWS. It defines your network boundaries, IP address pools, routing policies, and ingress/egress filtering rules.</p>
+
+<div class="vs">
+  <div class="card" style="--c:var(--rose)">
+    <h4>Default AWS VPC</h4>
+    <ol>
+      <li>Shared by default across all team members and unmanaged resources.</li>
+      <li>Uses fixed <code>172.31.0.0/16</code> range — cannot peer with on-premises or other VPCs using the same CIDR.</li>
+      <li>All subnets are automatically public with default routes to IGW.</li>
+      <li>Default Security Group allows unrestricted intra-VPC communication.</li>
+    </ol>
+    <div class="res no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> High blast radius &amp; security risk</div>
+  </div>
+
+  <div class="card" style="--c:var(--mint)">
+    <h4>Custom Dedicated VPC (Phase 1)</h4>
+    <ol>
+      <li>Complete isolation for the ZeetaFin project.</li>
+      <li>Custom non-overlapping CIDR: <code>10.0.0.0/16</code> tailored for multi-environment expansion.</li>
+      <li>Explicit subnetting: public subnet for ingress, future private subnets for database.</li>
+      <li>Explicit, least-privilege security groups locked strictly to operator <code>/32</code>.</li>
+    </ol>
+    <div class="res yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg> Zero-trust perimeter &amp; clean audit</div>
+  </div>
+</div>
+
+<div class="callout info">
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div>
+    <b class="t">DevOps Mental Model</b>
+    <p>A VPC is not just plumbing. It is the primary security boundary. If an attacker breaches an EC2 instance in a custom VPC, they can only reach resources routed within that specific VPC. They cannot see or pivot to databases or workloads running in other project VPCs.</p>
+  </div>
+</div>
+
+<!-- SECTION 2 -->
+<h2 id="cidr-math"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 12h10M12 7v10"/></svg></span>2. CIDR &amp; Subnet Math Explained</h2>
+
+<p>In Phase 1, we define two network ranges in <code>variables.tf</code>:</p>
+<ul>
+  <li><code>vpc_cidr = "10.0.0.0/16"</code></li>
+  <li><code>public_subnet_cidr = "10.0.1.0/24"</code></li>
+</ul>
+
+<p>What do these numbers actually mean?</p>
+
+<div class="tbl">
+<table>
+  <tr><th>CIDR Block</th><th>Prefix</th><th>Total IP Addresses</th><th>Usable in AWS</th><th>Purpose</th></tr>
+  <tr><td><code>10.0.0.0/16</code></td><td>/16</td><td>2<sup>(32-16)</sup> = 65,536</td><td>65,531</td><td>Entire VPC address pool</td></tr>
+  <tr><td><code>10.0.1.0/24</code></td><td>/24</td><td>2<sup>(32-24)</sup> = 256</td><td><strong>251</strong></td><td>Public Subnet (DMZ / Operator Server)</td></tr>
+  <tr><td><code>10.0.2.0/24</code></td><td>/24</td><td>256</td><td><strong>251</strong></td><td>Reserved for Phase 2/3 Private App Subnet</td></tr>
+  <tr><td><code>10.0.3.0/24</code></td><td>/24</td><td>256</td><td><strong>251</strong></td><td>Reserved for Phase 2/3 Database Subnet</td></tr>
+</table>
+</div>
+
+<div class="callout warn">
+  <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <div>
+    <b class="t">The 5 AWS Reserved IPs in Every Subnet</b>
+    <p>In standard IPv4 networking, only 2 addresses are reserved per subnet (Network ID and Broadcast). However, in <strong>every AWS subnet</strong>, exactly <strong>5 IP addresses are reserved</strong> and cannot be assigned to instances:</p>
+    <ul>
+      <li><code>10.0.1.0</code>: Network address</li>
+      <li><code>10.0.1.1</code>: Reserved by AWS for VPC router</li>
+      <li><code>10.0.1.2</code>: Reserved by AWS for DNS (AmazonProvidedDNS)</li>
+      <li><code>10.0.1.3</code>: Reserved by AWS for future use</li>
+      <li><code>10.0.1.255</code>: Network broadcast address (AWS does not support broadcast, but reserves it)</li>
+    </ul>
+    <p>Therefore, a <code>/24</code> provides <strong>251 assignable IPs</strong>. The first instance launched in <code>10.0.1.0/24</code> will always receive private IP <code>10.0.1.4</code> or higher!</p>
+  </div>
+</div>
+
+<!-- SECTION 3 -->
+<h2 id="declarative-iac"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></span>3. Declarative IaC vs Imperative Scripts</h2>
+
+<p>Why do we use Terraform instead of a Bash script with <code>aws ec2 create-vpc</code>?</p>
+
+<p>Bash scripts are <strong>imperative</strong>: they tell the computer <em>how</em> to execute commands sequentially. If a script fails midway, you are left with half-provisioned resources. Re-running the script will fail because the VPC already exists, but the subnet does not.</p>
+
+<p>Terraform is <strong>declarative</strong>: you declare the <em>desired target state</em>. Terraform compiles a <strong>Directed Acyclic Graph (DAG)</strong> of dependencies, compares your code against the real world recorded in <code>terraform.tfstate</code>, calculates the exact delta, and executes only what is needed.</p>
+
+<div class="term">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">Terraform State Engine Workflow</span>
+    <span class="tag">CONCEPT</span>
+  </div>
+  <pre><code>[ .tf Configuration Code ]  ──( desired state )──┐
+                                                  ▼
+[ terraform.tfstate File ]  ──( recorded state )──► [ Terraform Plan Engine ] ──► [ Execution Delta ]
+                                                  ▲                                (+ Create / ~ Change / - Destroy)
+[ AWS Cloud API ]           ──( actual state )────┘</code></pre>
+</div>
+
+<!-- SECTION 4 -->
+<h2 id="network-code"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>4. Line-by-Line Network Code Anatomy</h2>
+
+<p>Let's inspect the actual resources from <a href="file:///c:/Users/Zeetha%20Robotics/Documents/Vectra-Automation/IOTB-TECH-PROJECTS/phase1/main.tf">phase1/main.tf</a> that establish the network.</p>
+
+<h3 id="s-vpc">A. The Virtual Private Cloud (aws_vpc)</h3>
+
+<div class="code">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">phase1/main.tf</span>
+    <span class="tag">TERRAFORM</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code><span class="k">resource</span> <span class="s2">"aws_vpc"</span> <span class="s2">"main"</span> {
+  cidr_block           = var.vpc_cidr
+  enable_dns_support   = <span class="k">true</span> <span class="c"># Enables AmazonProvidedDNS (10.0.0.2)</span>
+  enable_dns_hostnames = <span class="k">true</span> <span class="c"># Assigns public DNS names to instances with public IPs</span>
+
+  tags = {
+    Name = <span class="s2">"${var.project_name}-${var.environment}-vpc"</span>
+  }
+}</code></pre>
+</div>
+
+<div class="anat">
+  <span class="a a-type">resource "aws_vpc"</span> <span class="a a-name">"main"</span> {
+    <span class="a a-arg">cidr_block</span> = <span class="a a-ref">var.vpc_cidr</span>
+    <span class="a a-arg">enable_dns_hostnames</span> = <span class="k">true</span>
+  }
+</div>
+<div class="legend">
+  <span><i style="background:#818cf8"></i>Resource Type</span>
+  <span><i style="background:#34d3b4"></i>Local Identifier</span>
+  <span><i style="background:#fbbf24"></i>Argument</span>
+  <span><i style="background:#f87171"></i>Variable Reference</span>
+</div>
+
+<p><strong>Critical Detail:</strong> <code>enable_dns_hostnames = true</code> is mandatory if you want EC2 instances to receive AWS public DNS hostnames (like <code>ec2-x-x-x-x.compute-1.amazonaws.com</code>). Without this, instances only receive raw public IP addresses.</p>
+
+<h3 id="s-igw">B. The Internet Gateway (aws_internet_gateway)</h3>
+
+<div class="code">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">phase1/main.tf</span>
+    <span class="tag">TERRAFORM</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code><span class="k">resource</span> <span class="s2">"aws_internet_gateway"</span> <span class="s2">"main"</span> {
+  vpc_id = aws_vpc.main.id
+
+  tags = { Name = <span class="s2">"${var.project_name}-${var.environment}-igw"</span> }
+}</code></pre>
+</div>
+
+<p>An Internet Gateway is horizontally scaled, redundant, and highly available by design. It performs <strong>1-to-1 NAT</strong> between an EC2 instance's private IP and its public IPv4 address, and routes outbound packets to the global internet.</p>
+
+<h3 id="s-subnet">C. The Public Subnet (aws_subnet)</h3>
+
+<div class="code">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">phase1/main.tf</span>
+    <span class="tag">TERRAFORM</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code><span class="k">resource</span> <span class="s2">"aws_subnet"</span> <span class="s2">"public"</span> {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.public_subnet_cidr
+  availability_zone       = var.availability_zone
+  map_public_ip_on_launch = <span class="k">true</span> <span class="c"># Auto-assigns public IP on boot</span>
+
+  tags = { Name = <span class="s2">"${var.project_name}-${var.environment}-public-subnet"</span> }
+}</code></pre>
+</div>
+
+<p>Setting <code>map_public_ip_on_launch = true</code> ensures that any EC2 instance launched into this subnet automatically gets a dynamic public IPv4 address from AWS's pool. This eliminates the requirement to purchase an Elastic IP (EIP), saving roughly $3.60/month.</p>
+
+<h3 id="s-rt">D. Route Table &amp; Association</h3>
+
+<div class="code">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">phase1/main.tf</span>
+    <span class="tag">TERRAFORM</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code><span class="k">resource</span> <span class="s2">"aws_route_table"</span> <span class="s2">"public"</span> {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = <span class="s2">"0.0.0.0/0"</span>
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = { Name = <span class="s2">"${var.project_name}-${var.environment}-public-rt"</span> }
+}
+
+<span class="k">resource</span> <span class="s2">"aws_route_table_association"</span> <span class="s2">"public"</span> {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}</code></pre>
+</div>
+
+<p>A subnet is purely <em>private</em> until its Route Table contains a default route (<code>0.0.0.0/0</code>) pointing to an <code>aws_internet_gateway</code>, AND the subnet is explicitly associated with that route table via <code>aws_route_table_association</code>.</p>
+
+<!-- SECTION 5 -->
+<h2 id="sec-group"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>5. Defense-in-Depth: Security Group Architecture</h2>
+
+<p>Security Groups are the virtual firewalls operating at the <strong>hypervisor level</strong> on each network interface (ENI). They are <strong>stateful</strong>: if you send an outbound request, return traffic is automatically permitted regardless of inbound rules.</p>
+
+<div class="code">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">phase1/main.tf — aws_security_group</span>
+    <span class="tag">TERRAFORM</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code><span class="k">resource</span> <span class="s2">"aws_security_group"</span> <span class="s2">"ec2"</span> {
+  name        = <span class="s2">"${var.project_name}-${var.environment}-ec2-sg"</span>
+  description = <span class="s2">"SSH from my IP only. All egress allowed so apt and Docker can reach the internet."</span>
+  vpc_id      = aws_vpc.main.id
+
+  <span class="c"># INGRESS: Strictly locked to a single /32 IP</span>
+  ingress {
+    description = <span class="s2">"SSH from operator IP"</span>
+    from_port   = 22
+    to_port     = 22
+    protocol    = <span class="s2">"tcp"</span>
+    cidr_blocks = [var.my_ip] <span class="c"># e.g., "197.210.x.x/32"</span>
+  }
+
+  <span class="c"># EGRESS: Permitted so apt update, Docker Hub pulls, and NTP work</span>
+  egress {
+    description = <span class="s2">"All outbound"</span>
+    from_port   = 0
+    to_port     = 0
+    protocol    = <span class="s2">"-1"</span>
+    cidr_blocks = [<span class="s2">"0.0.0.0/0"</span>]
+  }
+
+  tags = { Name = <span class="s2">"${var.project_name}-${var.environment}-ec2-sg"</span> }
+}</code></pre>
+</div>
+
+<div class="callout bad">
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div>
+    <b class="t">Why 0.0.0.0/0 Ingress on Port 22 is Unacceptable</b>
+    <p>Opening port 22 to <code>0.0.0.0/0</code> will result in your instance receiving automated SSH dictionary attacks from bots (Mirai, Shodan scanners, brute forcers) within <strong>90 seconds</strong> of provisioning. Locking to <code>var.my_ip</code> (/32 CIDR) makes your server completely invisible to global internet port sweeps.</p>
+  </div>
+</div>
+
+<!-- SECTION 6 -->
+<h2 id="vars-outputs"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>6. Variables, Outputs, and State Hygiene</h2>
+
+<p>A senior DevOps engineer separates variable definitions from real secrets and environment values:</p>
+
+<div class="cards">
+  <div class="card" style="--c:var(--c1)">
+    <h4>variables.tf</h4>
+    <p>Declares inputs with strict types, descriptions, and sensible defaults. Committed to Git.</p>
+  </div>
+  <div class="card" style="--c:var(--c3)">
+    <h4>terraform.tfvars.example</h4>
+    <p>Committed template file showing the exact structure teammates need to fill in.</p>
+  </div>
+  <div class="card" style="--c:var(--rose)">
+    <h4>terraform.tfvars</h4>
+    <p>Contains your personal public IP and SSH key path. <strong>MUST BE GITIGNORED</strong>.</p>
+  </div>
+  <div class="card" style="--c:var(--mint)">
+    <h4>outputs.tf</h4>
+    <p>Emits public IP, AMI ID, and live SSH command for downstream automation.</p>
+  </div>
+</div>
+
+<p>How to look up your real public IP in terminal:</p>
+
+<div class="term">
+  <div class="bar">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <span class="fn">Bash / PowerShell</span>
+    <span class="tag">CLI</span>
+    <button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+  </div>
+  <pre><code><span class="p">$ </span>curl -s https://ifconfig.me
+197.210.45.12
+
+<span class="c"># Configure phase1/terraform.tfvars:</span>
+my_ip = "197.210.45.12/32"</code></pre>
+</div>
+
+<!-- SECTION 7 -->
+<h2 id="cli-lifecycle"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>7. The Professional Terraform CLI Lifecycle</h2>
+
+<p>Never run <code>terraform apply</code> blindly without formatting, validation, and a saved plan file:</p>
+
+<ol class="steps">
+  <li>
+    <b>Format check: Ensure clean, idiomatic HCL style</b>
+    <p>Run <code>terraform fmt -check -recursive</code>. In CI pipelines, this fails if any file is unformatted.</p>
+    <div class="term">
+      <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">Terminal</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+      <pre><code><span class="p">$ </span>terraform fmt -check -recursive
+<span class="ok"># Exit code 0 means all .tf files match HashiCorp canonical formatting</span></code></pre>
+    </div>
+  </li>
+
+  <li>
+    <b>Initialize working directory and provider plugins</b>
+    <p>Downloads the AWS provider (<code>~> 5.0</code>) and local provider specified in <code>versions.tf</code>.</p>
+    <div class="term">
+      <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">Terminal</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+      <pre><code><span class="p">$ </span>terraform init
+<span class="ok">Terraform has been successfully initialized!</span></code></pre>
+    </div>
+  </li>
+
+  <li>
+    <b>Static validation without calling AWS APIs</b>
+    <p>Checks HCL syntax, missing arguments, and type compatibility.</p>
+    <div class="term">
+      <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">Terminal</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+      <pre><code><span class="p">$ </span>terraform validate
+<span class="ok">Success! The configuration is valid.</span></code></pre>
+    </div>
+  </li>
+
+  <li>
+    <b>Generate and lock an explicit plan file</b>
+    <p>Always output the plan to a binary file (<code>-out=tfplan</code>). This prevents race conditions where someone creates resources between plan and apply.</p>
+    <div class="term">
+      <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">Terminal</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+      <pre><code><span class="p">$ </span>terraform plan -out=tfplan
+Plan: 11 to add, 0 to change, 0 to destroy.</code></pre>
+    </div>
+  </li>
+
+  <li>
+    <b>Apply the exact plan file</b>
+    <p>Applying <code>tfplan</code> guarantees that only what was reviewed in step 4 is provisioned.</p>
+    <div class="term">
+      <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">Terminal</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+      <pre><code><span class="p">$ </span>terraform apply tfplan
+<span class="ok">Apply complete! Resources: 11 added, 0 changed, 0 destroyed.</span>
+
+Outputs:
+instance_id = "i-086381ab281249fa1"
+public_ip   = "54.89.144.201"
+ssh_command = "ssh -i ~/.ssh/phase1-key ubuntu@54.89.144.201"</code></pre>
+    </div>
+  </li>
+</ol>
+
+<!-- SECTION 8 -->
+<h2 id="failures"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polygon points="12 8 8 12 12 16 12 8"/><line x1="16" y1="12" x2="12" y2="12"/></svg></span>8. Production Failures, Forensics, and Triage</h2>
+
+<p>DevOps expertise is measured by how fast you triage and fix outages. Here are three real scenarios you will encounter:</p>
+
+<!-- SCENARIO 1 -->
+<h3 id="sc1">Scenario 1: The 0.0.0.0/0 Security Breach Audit</h3>
+
+<div class="callout bad">
+  <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+  <div>
+    <b class="t">Symptom</b>
+    <p>A junior engineer edits <code>terraform.tfvars</code> and sets <code>my_ip = "0.0.0.0/0"</code> to "make testing easier from anywhere". Within 1 hour, AWS Security Hub raises a Critical Finding: <code>[PCI.EC2.6] Security groups should not allow ingress from 0.0.0.0/0 to port 22</code>. Meanwhile, <code>/var/log/auth.log</code> shows thousands of failed SSH logins per minute.</p>
+  </div>
+</div>
+
+<details>
+<summary>View Diagnostic Steps &amp; Immediate Triage</summary>
+<p><b>Step 1: Check live auth log on the server</b></p>
+<div class="term">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">EC2 Bash</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+  <pre><code><span class="p">$ </span>sudo tail -n 20 /var/log/auth.log | grep "Failed password"
+<span class="bad">Failed password for invalid user root from 185.220.101.5 port 49202 ssh2</span>
+<span class="bad">Failed password for invalid user admin from 194.26.29.112 port 51234 ssh2</span>
+<span class="bad">Failed password for invalid user test from 45.154.255.89 port 38101 ssh2</span></code></pre>
+</div>
+
+<p><b>Step 2: Remediate immediately in Terraform</b></p>
+<div class="code">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">terraform.tfvars</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+  <pre><code><span class="c"># Re-lock to operator /32 immediately</span>
+my_ip = "197.210.45.12/32"</code></pre>
+</div>
+
+<p><b>Step 3: Apply the in-place Security Group update</b></p>
+<div class="term">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">Terminal</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+  <pre><code><span class="p">$ </span>terraform apply -auto-approve
+<span class="ok">aws_security_group.ec2: Modifying... [id=sg-0a12b34c56d78e]</span>
+<span class="ok">Apply complete! Resources: 0 added, 1 changed, 0 destroyed.</span></code></pre>
+</div>
+<p>Because Security Group rule modifications are non-destructive in-place updates, existing valid SSH sessions remain open, but all unauthorized connections are severed immediately at the AWS packet boundary.</p>
+</details>
+
+<!-- SCENARIO 2 -->
+<h3 id="sc2">Scenario 2: The Gateway Blackhole Outage</h3>
+
+<div class="callout warn">
+  <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+  <div>
+    <b class="t">Symptom</b>
+    <p>Terraform creates the VPC, Subnet, and EC2 instance successfully. The output shows <code>public_ip = "54.89.144.201"</code>. But when you run <code>ssh ubuntu@54.89.144.201</code>, the connection hangs indefinitely: <code>ssh: connect to host 54.89.144.201 port 22: Connection timed out</code>.</p>
+  </div>
+</div>
+
+<details>
+<summary>View Root Cause &amp; Route Table Forensics</summary>
+<p><b>Root Cause:</b> The subnet was created, but the <code>aws_route_table_association</code> resource was omitted or commented out! When a subnet has no explicit association, it falls back to the VPC's <em>Main Route Table</em>, which by default only has a local route (<code>10.0.0.0/16 -> local</code>) and <strong>NO route to the Internet Gateway</strong>.</p>
+
+<p><b>Diagnostic CLI Check:</b></p>
+<div class="term">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">AWS CLI</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+  <pre><code><span class="p">$ </span>aws ec2 describe-route-tables --filters "Name=vpc-id,Values=vpc-0123456789abcdef" \
+    --query "RouteTables[].Routes"
+<span class="bad">[
+    { "DestinationCidrBlock": "10.0.0.0/16", "State": "active", "GatewayId": "local" }
+]</span>
+<span class="c"># Notice: No 0.0.0.0/0 route pointing to igw!</span></code></pre>
+</div>
+
+<p><b>Fix:</b> Verify that both <code>aws_route_table</code> and <code>aws_route_table_association</code> exist in <code>main.tf</code>:</p>
+<div class="code">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">main.tf</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+  <pre><code><span class="k">resource</span> <span class="s2">"aws_route_table_association"</span> <span class="s2">"public"</span> {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}</code></pre>
+</div>
+</details>
+
+<!-- SCENARIO 3 -->
+<h3 id="sc3">Scenario 3: State Desynchronization and Phantom Drift</h3>
+
+<div class="callout info">
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <div>
+    <b class="t">Symptom</b>
+    <p>A systems administrator logged into the AWS Web Management Console and manually added port 80 (HTTP) to the Security Group for testing. Later, when you run <code>terraform plan</code>, Terraform unexpectedly reports that the security group has drifted and wants to strip port 80.</p>
+  </div>
+</div>
+
+<details>
+<summary>View Drift Resolution Strategy</summary>
+<p>This is classic <strong>Configuration Drift</strong>. In GitOps, the code in Git is the single source of truth. Manual console changes are "ghost configurations".</p>
+
+<p>You have two choices:</p>
+<ol>
+  <li><strong>Overrule and revert manual drift:</strong> Run <code>terraform apply</code>. Terraform will contact AWS and remove the rogue port 80 rule, enforcing the declared infrastructure state.</li>
+  <li><strong>Codify the change in Git:</strong> If port 80 was legitimately needed, add it to <code>phase1/main.tf</code> in code, commit to Git with Conventional Commits (<code>feat(infra): open http port 80 on ec2 sg</code>), and run <code>terraform apply</code>.</li>
+</ol>
+<div class="term">
+  <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="fn">Terminal — Drift Reversal</span><button class="copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button></div>
+  <pre><code><span class="p">$ </span>terraform plan
+<span class="warn">~ resource "aws_security_group" "ec2" {
+    # (6 unchanged attributes hidden)
+  - ingress {
+      - cidr_blocks = ["0.0.0.0/0"]
+      - from_port   = 80
+      - protocol    = "tcp"
+      - to_port     = 80
+    }
+  }</span>
+Plan: 0 to add, 1 to change, 0 to destroy.</code></pre>
+</div>
+</details>
+
+<!-- SECTION 9 -->
+<h2 id="checklist"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>9. Production Best Practices Checklist</h2>
+
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Best Practice Rule</th><th>Enterprise Rationale</th></tr>
+  <tr><td>1</td><td>Never use the Default VPC</td><td>Isolate blast radius; avoid CIDR collisions with corporate VPNs.</td></tr>
+  <tr><td>2</td><td>Enforce /32 for operator SSH ingress</td><td>Neutralizes 100% of global automated botnet brute-force scans.</td></tr>
+  <tr><td>3</td><td>Always output binary plan files</td><td><code>terraform plan -out=tfplan</code> guarantees apply atomicity.</td></tr>
+  <tr><td>4</td><td>Gitignore <code>terraform.tfvars</code> &amp; state</td><td>Prevents accidental leak of operator IPs, keys, or state files.</td></tr>
+  <tr><td>5</td><td>Enable DNS support and hostnames</td><td>Required for AWS internal service discovery and public DNS names.</td></tr>
+  <tr><td>6</td><td>Use descriptive resource naming tags</td><td><code>${var.project_name}-${var.environment}-*</code> enables cost allocation.</td></tr>
+  <tr><td>7</td><td>Pin provider versions in <code>versions.tf</code></td><td>Prevents breaking syntax changes on unexpected provider major bumps.</td></tr>
+  <tr><td>8</td><td>Run <code>terraform fmt -check</code> in CI</td><td>Maintains consistent team codebase readability.</td></tr>
+</table>
+</div>
+
+<!-- SECTION 10 -->
+<h2 id="exercises"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.7 6.3a4 4 0 0 0 5 5L21 12.6a2 2 0 0 1 0 2.8l-5.6 5.6a2 2 0 0 1-2.8 0L3 11.4a2 2 0 0 1 0-2.8L8.6 3a2 2 0 0 1 2.8 0z" transform="translate(0 0) scale(.9) translate(1.3 1.3)"/></svg></span>10. Hands-on Muscle Memory Exercises</h2>
+
+<ol class="steps">
+  <li>
+    <b>Inspect the Terraform Dependency Graph</b>
+    <p>Run <code>terraform graph</code> in <code>phase1/</code>. You can pipe it to Graphviz (<code>dot -Tpng -o graph.png</code>) to visualize the exact dependency tree connecting the VPC, IGW, Route Table, Subnet, and Security Group.</p>
+  </li>
+
+  <li>
+    <b>Query VPC State with AWS CLI</b>
+    <p>Run <code>aws ec2 describe-vpcs --filters "Name=tag:Name,Values=phase1-dev-vpc" --query "Vpcs[0].[VpcId,CidrBlock,State]"</code>. Verify that the CIDR block matches <code>10.0.0.0/16</code> and status is <code>available</code>.</p>
+  </li>
+
+  <li>
+    <b>Verify Ingress Firewall Filtering</b>
+    <p>Try running <code>nmap -p 22 &lt;public_ip&gt;</code> from a machine outside your <code>/32</code> IP (e.g., your smartphone on cellular network). The port must report <code>filtered</code> (packets silently dropped), not <code>open</code> or <code>closed</code>!</p>
+  </li>
+</ol>
+
+<!-- SECTION 11 -->
+<h2 id="next"><span class="hi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>11. What Comes Next</h2>
+
+<p>In <strong>Part 2</strong>, we launch the EC2 compute instance into this subnet. We will deep-dive into dynamic Ubuntu 24.04 AMI resolution, IMDSv2 SSRF mitigation, gp3 encrypted EBS volumes, and zero-permission forward-compatible IAM roles.</p>
+
+<div class="pager">
+  <span></span>
+  <a class="r" href="part-2-ec2-iam-imdsv2-hardening.html">
+    <small>Next Chapter →</small>
+    Hardened EC2 Compute, IMDSv2 &amp; IAM
+  </a>
+</div>
+
+</article>
+</div></div>
+
+<footer><div class="wrap">ZeetaFin Cloud Infrastructure · Phase 1 Lab Series · Abdulmuiz · <a href="https://github.com/Devzane">GitHub</a></div></footer>
+
+<script>
+// Progress bar
+const bar = document.querySelector('.progress i');
+window.addEventListener('scroll', () => {
+  const h = document.documentElement;
+  bar.style.width = ((h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100) + '%';
+});
+
+// TOC active tracker
+const links = [...document.querySelectorAll('nav.toc a')];
+const obs = new IntersectionObserver(es => {
+  es.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('on'));
+      const a = links.find(l => l.getAttribute('href') === '#' + e.target.id);
+      if (a) a.classList.add('on');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+document.querySelectorAll('article h2[id], article h3[id]').forEach(h => obs.observe(h));
+
+// Click-to-Copy
+document.querySelectorAll('.copy').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const parent = btn.closest('.code, .term');
+    const target = parent ? parent.querySelector('pre code, pre') : null;
+    if (target) {
+      navigator.clipboard.writeText(target.innerText).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.innerHTML = orig;
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+  });
+});
+</script>
+</body></html>
