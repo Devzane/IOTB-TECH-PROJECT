@@ -37,6 +37,7 @@ tfplan
 *.env
 **/.env
 **/.env.*
+!**/.env.example
 
 # SSH private keys and certificates
 *.pem
