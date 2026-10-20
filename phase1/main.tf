@@ -70,17 +70,37 @@ resource "aws_route_table_association" "public" {
 
 resource "aws_security_group" "ec2" {
   name        = "${var.project_name}-${var.environment}-ec2-sg"
-  description = "SSH from my IP only. All egress allowed so apt and Docker can reach the internet."
+  description = "Security group for ZeetaFin app with SSH and web ingress"
   vpc_id      = aws_vpc.main.id
 
+  # SSH Access: Required for GitHub Actions deployment runner
   ingress {
-    description = "SSH"
+    description = "SSH for administration and CI/CD"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip]
+    cidr_blocks = ["0.0.0.0/0"] # Or keep [var.my_ip] if using a self-hosted runner
   }
 
+  # Next.js Web Frontend
+  ingress {
+    description = "ZeetaFin Frontend UI"
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # NestJS REST API
+  ingress {
+    description = "ZeetaFin Backend REST API"
+    from_port   = 3001
+    to_port     = 3001
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Allow all outbound traffic so Docker can pull images & OS can run apt
   egress {
     description = "All outbound"
     from_port   = 0
@@ -91,6 +111,7 @@ resource "aws_security_group" "ec2" {
 
   tags = { Name = "${var.project_name}-${var.environment}-ec2-sg" }
 }
+
 
 # ─── Key Pair ─────────────────────────────────────────────────────────────────
 
