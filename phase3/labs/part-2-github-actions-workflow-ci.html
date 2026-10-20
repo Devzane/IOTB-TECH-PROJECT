@@ -526,11 +526,11 @@ footer{margin-top:80px;border-top:1px solid var(--line);padding:32px 0 64px;font
   <div class="bar">
     <div class="dots"><i></i><i></i><i></i></div>
     <span class="fn">Terminal (AWS CLI)</span>
-    <span class="tag">BASH</span>
+    <span class="tag">BASH / POWERSHELL</span>
     <button class="copy" type="button"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
   </div>
-<pre><code><span class="p">$ </span>aws ecr list-images --repository-name zeetafin-backend --region us-east-1
-<span class="p">$ </span>aws ecr list-images --repository-name zeetafin-frontend --region us-east-1</code></pre>
+<pre><code>aws ecr list-images --repository-name zeetafin-backend --region us-east-1
+aws ecr list-images --repository-name zeetafin-frontend --region us-east-1</code></pre>
 </div>
 
 <p>Expected JSON response showing both the commit SHA and <code>latest</code> pointing to the same image digest:</p>
@@ -654,7 +654,8 @@ document.querySelectorAll('.copy').forEach(btn => {
     const parent = btn.closest('.code, .term');
     const target = parent ? parent.querySelector('pre code, pre') : null;
     if (target) {
-      navigator.clipboard.writeText(target.innerText).then(() => {
+      const cleanText = target.innerText.replace(/^\$\s+/gm, '');
+      navigator.clipboard.writeText(cleanText).then(() => {
         const orig = btn.innerHTML;
         btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
         btn.classList.add('copied');
