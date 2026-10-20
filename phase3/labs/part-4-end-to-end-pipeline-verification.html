@@ -304,14 +304,14 @@ footer{margin-top:80px;border-top:1px solid var(--line);padding:32px 0 64px;font
   <div class="bar">
     <div class="dots"><i></i><i></i><i></i></div>
     <span class="fn">Terminal (Local Developer Machine)</span>
-    <span class="tag">BASH</span>
+    <span class="tag">BASH / POWERSHELL</span>
     <button class="copy" type="button"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
   </div>
-<pre><code><span class="p">$ </span>git status
-<span class="p">$ </span>git diff phase2/frontend/app/page.tsx
-<span class="p">$ </span>git add phase2/frontend/app/page.tsx
-<span class="p">$ </span>git commit -m "feat(ui): add automated release badge to dashboard"
-<span class="p">$ </span>git push origin main</code></pre>
+<pre><code>git status
+git diff phase2/frontend/app/page.tsx
+git add phase2/frontend/app/page.tsx
+git commit -m "feat(ui): add automated release badge to dashboard"
+git push origin main</code></pre>
 </div>
 
 <!-- SECTION 4 -->
@@ -343,12 +343,12 @@ footer{margin-top:80px;border-top:1px solid var(--line);padding:32px 0 64px;font
   <div class="bar">
     <div class="dots"><i></i><i></i><i></i></div>
     <span class="fn">Terminal (SSH to EC2 Host)</span>
-    <span class="tag">BASH</span>
+    <span class="tag">BASH / POWERSHELL</span>
     <button class="copy" type="button"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
   </div>
-<pre><code><span class="p">$ </span>ssh -i phase1-key.pem ubuntu@&lt;EC2_PUBLIC_IP&gt;
-<span class="p">$ </span>cd /home/ubuntu/zeetafin-app
-<span class="p">$ </span>docker compose -f docker-compose.prod.yml ps</code></pre>
+<pre><code>ssh -i phase1-key.pem ubuntu@&lt;EC2_PUBLIC_IP&gt;
+cd /home/ubuntu/zeetafin-app
+docker compose -f docker-compose.prod.yml ps</code></pre>
 </div>
 
 <p>Expected output showing all 3 services healthy and active:</p>
@@ -373,11 +373,11 @@ zeetafin-frontend-prod   123456789012.dkr.ecr.us-east-1.amazonaws.com/...      "
   <div class="bar">
     <div class="dots"><i></i><i></i><i></i></div>
     <span class="fn">Terminal (Local Laptop)</span>
-    <span class="tag">BASH</span>
+    <span class="tag">BASH / POWERSHELL</span>
     <button class="copy" type="button"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
   </div>
-<pre><code><span class="p">$ </span>curl -I "http://&lt;EC2_PUBLIC_IP&gt;:3000"
-<span class="p">$ </span>curl -I "http://&lt;EC2_PUBLIC_IP&gt;:3001/api/docs"</code></pre>
+<pre><code>curl -I "http://&lt;EC2_PUBLIC_IP&gt;:3000"
+curl -I "http://&lt;EC2_PUBLIC_IP&gt;:3001/api/docs"</code></pre>
 </div>
 
 <p>Both endpoints must return <code>HTTP/1.1 200 OK</code>.</p>
@@ -527,7 +527,8 @@ document.querySelectorAll('.copy').forEach(btn => {
     const parent = btn.closest('.code, .term');
     const target = parent ? parent.querySelector('pre code, pre') : null;
     if (target) {
-      navigator.clipboard.writeText(target.innerText).then(() => {
+      const cleanText = target.innerText.replace(/^\$\s+/gm, '');
+      navigator.clipboard.writeText(cleanText).then(() => {
         const orig = btn.innerHTML;
         btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
         btn.classList.add('copied');
