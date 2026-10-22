@@ -199,17 +199,24 @@ footer{margin-top:80px;border-top:1px solid var(--line);padding:32px 0 64px;font
   <circle cx="75" cy="115" r="12" fill="#6366f1"/>
   <text x="71" y="120" fill="#fff" font-family="Sora, sans-serif" font-size="12" font-weight="700">1</text>
   <text x="95" y="120" fill="#f8fafc" font-family="Sora, sans-serif" font-size="13" font-weight="700">Checkout</text>
-  <text x="65" y="150" fill="#94a3b8" font-family="JetBrains Mono, monospace" font-size="11">actions/checkout@v4</text>
-  <text x="65" y="175" fill="#cbd5e1" font-family="DM Sans, sans-serif" font-size="12">Pulls repository source tree &amp; commit SHA</text>
+  <text x="65" y="148" fill="#94a3b8" font-family="JetBrains Mono, monospace" font-size="11">actions/checkout@v4</text>
+  <text x="65" y="176" fill="#cbd5e1" font-family="DM Sans, sans-serif" font-size="11.5">
+    <tspan x="65" dy="0">Pulls repository</tspan>
+    <tspan x="65" dy="17">source tree &amp;</tspan>
+    <tspan x="65" dy="17">commit SHA</tspan>
+  </text>
 
   <!-- Step 2: Auth -->
   <rect x="250" y="90" width="190" height="180" rx="10" fill="#1e293b" stroke="#475569"/>
   <circle cx="275" cy="115" r="12" fill="#6366f1"/>
   <text x="271" y="120" fill="#fff" font-family="Sora, sans-serif" font-size="12" font-weight="700">2</text>
   <text x="295" y="120" fill="#f8fafc" font-family="Sora, sans-serif" font-size="13" font-weight="700">AWS Auth</text>
-  <text x="265" y="150" fill="#818cf8" font-family="JetBrains Mono, monospace" font-size="11">configure-aws-cred</text>
-  <text x="265" y="170" fill="#818cf8" font-family="JetBrains Mono, monospace" font-size="11">amazon-ecr-login</text>
-  <text x="265" y="195" fill="#cbd5e1" font-family="DM Sans, sans-serif" font-size="12">Generates temporary Docker auth token</text>
+  <text x="265" y="148" fill="#818cf8" font-family="JetBrains Mono, monospace" font-size="11">configure-aws-cred</text>
+  <text x="265" y="168" fill="#818cf8" font-family="JetBrains Mono, monospace" font-size="11">amazon-ecr-login</text>
+  <text x="265" y="196" fill="#cbd5e1" font-family="DM Sans, sans-serif" font-size="11.5">
+    <tspan x="265" dy="0">Generates temporary</tspan>
+    <tspan x="265" dy="17">Docker auth token</tspan>
+  </text>
 
   <!-- Step 3: Build & Cache -->
   <rect x="470" y="90" width="270" height="180" rx="10" fill="#1e293b" stroke="#6366f1"/>
