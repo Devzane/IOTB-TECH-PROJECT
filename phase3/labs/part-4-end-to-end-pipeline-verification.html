@@ -198,35 +198,48 @@ footer{margin-top:80px;border-top:1px solid var(--line);padding:32px 0 64px;font
   <circle cx="75" cy="115" r="12" fill="#6366f1"/>
   <text x="71" y="120" fill="#fff" font-family="Sora, sans-serif" font-size="12" font-weight="700">1</text>
   <text x="95" y="120" fill="#f8fafc" font-family="Sora, sans-serif" font-size="13" font-weight="700">Developer</text>
-  <text x="70" y="150" fill="#818cf8" font-family="JetBrains Mono, monospace" font-size="11">git push</text>
-  <text x="70" y="170" fill="#cbd5e1" font-family="DM Sans, sans-serif" font-size="12">Pushes code change to GitHub main branch</text>
+  <text x="70" y="148" fill="#818cf8" font-family="JetBrains Mono, monospace" font-size="11">git push</text>
+  <text x="70" y="174" fill="#cbd5e1" font-family="DM Sans, sans-serif" font-size="11.5">
+    <tspan x="70" dy="0">Pushes code change</tspan>
+    <tspan x="70" dy="17">to GitHub main</tspan>
+    <tspan x="70" dy="17">branch</tspan>
+  </text>
 
   <!-- Node 2: GitHub Actions -->
   <rect x="250" y="90" width="200" height="180" rx="10" fill="#1e293b" stroke="#334155"/>
   <circle cx="270" cy="115" r="12" fill="#0ea5e9"/>
   <text x="266" y="120" fill="#fff" font-family="Sora, sans-serif" font-size="12" font-weight="700">2</text>
   <text x="290" y="120" fill="#f8fafc" font-family="Sora, sans-serif" font-size="13" font-weight="700">GitHub Actions</text>
-  <text x="265" y="150" fill="#38bdf8" font-family="JetBrains Mono, monospace" font-size="11">Build &amp; Push ECR</text>
-  <text x="265" y="170" fill="#38bdf8" font-family="JetBrains Mono, monospace" font-size="11">SSH to EC2 Host</text>
-  <text x="265" y="195" fill="#cbd5e1" font-family="DM Sans, sans-serif" font-size="12">Executes build, auth, and remote deployment</text>
+  <text x="265" y="148" fill="#38bdf8" font-family="JetBrains Mono, monospace" font-size="11">Build &amp; Push ECR</text>
+  <text x="265" y="168" fill="#38bdf8" font-family="JetBrains Mono, monospace" font-size="11">SSH to EC2 Host</text>
+  <text x="265" y="196" fill="#cbd5e1" font-family="DM Sans, sans-serif" font-size="11.5">
+    <tspan x="265" dy="0">Executes build, auth,</tspan>
+    <tspan x="265" dy="17">&amp; remote deployment</tspan>
+  </text>
 
   <!-- Node 3: EC2 Deployment -->
   <rect x="485" y="90" width="240" height="180" rx="10" fill="#1e293b" stroke="#334155"/>
   <circle cx="505" cy="115" r="12" fill="#f59e0b"/>
   <text x="501" y="120" fill="#fff" font-family="Sora, sans-serif" font-size="12" font-weight="700">3</text>
   <text x="525" y="120" fill="#f8fafc" font-family="Sora, sans-serif" font-size="13" font-weight="700">AWS EC2 Server</text>
-  <text x="500" y="150" fill="#fcd34d" font-family="JetBrains Mono, monospace" font-size="11">docker compose pull</text>
-  <text x="500" y="170" fill="#fcd34d" font-family="JetBrains Mono, monospace" font-size="11">up -d --force-recreate</text>
-  <text x="500" y="195" fill="#cbd5e1" font-family="DM Sans, sans-serif" font-size="12">Replaces old containers with zero port conflict</text>
+  <text x="500" y="148" fill="#fcd34d" font-family="JetBrains Mono, monospace" font-size="11">docker compose pull</text>
+  <text x="500" y="168" fill="#fcd34d" font-family="JetBrains Mono, monospace" font-size="11">up -d --force-recreate</text>
+  <text x="500" y="196" fill="#cbd5e1" font-family="DM Sans, sans-serif" font-size="11.5">
+    <tspan x="500" dy="0">Replaces containers with</tspan>
+    <tspan x="500" dy="17">zero port conflict</tspan>
+  </text>
 
   <!-- Node 4: Browser Verification -->
   <rect x="760" y="90" width="260" height="180" rx="10" fill="#064e3b" stroke="#10b981"/>
   <circle cx="780" cy="115" r="12" fill="#10b981"/>
   <text x="776" y="120" fill="#fff" font-family="Sora, sans-serif" font-size="12" font-weight="700">4</text>
   <text x="800" y="120" fill="#ecfdf5" font-family="Sora, sans-serif" font-size="13" font-weight="700">Live Application</text>
-  <text x="775" y="150" fill="#6ee7b7" font-family="JetBrains Mono, monospace" font-size="11">UI: :3000 (Next.js)</text>
-  <text x="775" y="170" fill="#6ee7b7" font-family="JetBrains Mono, monospace" font-size="11">API: :3001 (NestJS)</text>
-  <text x="775" y="195" fill="#a7f3d0" font-family="DM Sans, sans-serif" font-size="12">External healthcheck succeeds (HTTP 200)</text>
+  <text x="775" y="148" fill="#6ee7b7" font-family="JetBrains Mono, monospace" font-size="11">UI: :3000 (Next.js)</text>
+  <text x="775" y="168" fill="#6ee7b7" font-family="JetBrains Mono, monospace" font-size="11">API: :3001 (NestJS)</text>
+  <text x="775" y="196" fill="#a7f3d0" font-family="DM Sans, sans-serif" font-size="11.5">
+    <tspan x="775" dy="0">External healthcheck</tspan>
+    <tspan x="775" dy="17">succeeds (HTTP 200)</tspan>
+  </text>
 
   <!-- Connectors -->
   <line x1="215" y1="180" x2="250" y2="180" stroke="#34d3b4" stroke-width="2.5" marker-end="url(#arr-f1)"/>
