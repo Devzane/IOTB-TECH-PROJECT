@@ -10,6 +10,10 @@ on:
       - '.github/workflows/**'
       - 'Dockerfile'
       - 'docker-compose*.yml'
+      - '!**/README.md'
+      - '!README.md'
+      - '!**/readme.md'
+      - '!readme.md'
   workflow_dispatch:
     inputs:
       environment:
