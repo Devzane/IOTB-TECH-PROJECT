@@ -37,7 +37,7 @@ jobs:
     name: Build & Push Images to Amazon ECR
     runs-on: ubuntu-latest
     outputs:
-      ecr_registry: ${{ steps.login-ecr.outputs.registry }}
+      ecr_registry: ${{ steps.export-registry.outputs.registry || steps.login-ecr.outputs.registry }}
       image_tag: ${{ steps.set-tag.outputs.tag }}
 
     steps:
@@ -68,6 +68,12 @@ jobs:
       - name: Log in to Amazon Elastic Container Registry (ECR)
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Export ECR Registry URI
+        id: export-registry
+        run: |
+          echo "registry=${{ steps.login-ecr.outputs.registry }}" >> "$GITHUB_OUTPUT"
+          echo "Captured ECR Registry URI: ${{ steps.login-ecr.outputs.registry }}"
 
       - name: Build & Push Backend Container Image
         uses: docker/build-push-action@v5
@@ -107,6 +113,17 @@ jobs:
       - name: Checkout Application Code
         uses: actions/checkout@v4
 
+      - name: Authenticate with AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Log in to Amazon Elastic Container Registry (ECR)
+        id: login-ecr-deploy
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Configure Secure SSH Key
         run: |
           mkdir -p ~/.ssh
@@ -138,28 +155,30 @@ jobs:
         env:
           EC2_USER: ${{ secrets.EC2_USERNAME || 'ubuntu' }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
-          ECR_REGISTRY: ${{ needs.build-and-push.outputs.ecr_registry }}
+          ECR_REGISTRY: ${{ steps.login-ecr-deploy.outputs.registry || needs.build-and-push.outputs.ecr_registry }}
           IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
         run: |
           echo "Connecting to EC2 server (${EC2_HOST}) to execute container rollout..."
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "${EC2_USER}@${EC2_HOST}" << 'EOF'
+          echo "Target ECR Registry: ${ECR_REGISTRY}"
+          echo "Target Image Tag: ${IMAGE_TAG}"
+
+          # Generate temporary ECR login password on GitHub Actions runner
+          ECR_PASS=$(aws ecr get-login-password --region "${AWS_REGION}")
+
+          # Remotely authenticate Docker on EC2 and execute rollout
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "${EC2_USER}@${EC2_HOST}" << EOF
             set -euo pipefail
             cd /home/ubuntu/zeetafin-app
             chmod +x scripts/deploy.sh scripts/healthcheck.sh
 
-            # Ensure AWS credentials are available for EC2 Docker ECR authentication
-            export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
-            export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-            export AWS_DEFAULT_REGION="${{ secrets.AWS_REGION || 'us-east-1' }}"
-            export ECR_REGISTRY="${{ needs.build-and-push.outputs.ecr_registry }}"
-            export IMAGE_TAG="${{ needs.build-and-push.outputs.image_tag }}"
-            export NEXT_PUBLIC_API_URL="http://${{ secrets.EC2_HOST }}:3001/api"
+            # Authenticate Docker daemon on EC2 against Amazon ECR
+            echo "${ECR_PASS}" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
+
+            export NEXT_PUBLIC_API_URL="http://${EC2_HOST}:3001/api"
 
             # Execute deployment engine
-            ./scripts/deploy.sh "${IMAGE_TAG}" "${ECR_REGISTRY}" "${AWS_DEFAULT_REGION}"
+            ./scripts/deploy.sh "${IMAGE_TAG}" "${ECR_REGISTRY}" "${AWS_REGION}"
           EOF
 
       - name: Automated External Availability Smoke Check

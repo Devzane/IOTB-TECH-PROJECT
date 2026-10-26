@@ -42,6 +42,16 @@ fi
 
 cd "${APP_DIR}"
 
+# If ECR_REGISTRY was not passed as argument, attempt to read from existing .env
+if [ -z "${ECR_REGISTRY}" ] && [ -f "${ENV_FILE}" ]; then
+  ECR_REGISTRY="$(grep -E '^ECR_REGISTRY=' "${ENV_FILE}" | cut -d'=' -f2- || true)"
+fi
+
+if [ -z "${ECR_REGISTRY}" ]; then
+  log_error "ECR_REGISTRY is not specified! Cannot pull private ECR images without registry URL."
+  exit 1
+fi
+
 if [ ! -f "${COMPOSE_FILE}" ]; then
   log_error "Compose file ${COMPOSE_FILE} not found. Aborting."
   exit 1
