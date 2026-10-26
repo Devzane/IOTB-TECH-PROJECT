@@ -112,6 +112,7 @@ terraform apply tfplan
 
 # 5. Configure the instance
 cd ansible/
+export ANSIBLE_CONFIG=./ansible.cfg   # Required on WSL/Windows to prevent world-writable directory warnings
 ansible-playbook playbooks/site.yml
 ```
 
@@ -169,6 +170,7 @@ ssh -i ~/.ssh/phase1-key ubuntu@<public_ip>
 
 ```bash
 cd ansible/
+export ANSIBLE_CONFIG=./ansible.cfg   # Ensures ansible.cfg is read even on WSL mounts
 ansible webservers -m ansible.builtin.ping
 ansible-playbook playbooks/site.yml --syntax-check
 ```
@@ -281,6 +283,27 @@ The instance makes no AWS API calls in Phase 1, so it has no permissions. The ro
 ### host_key_checking = False
 
 Disabling host key verification exposes the connection to man-in-the-middle attacks. It is accepted here only because lab instances are routinely destroyed and recreated. In production, pre-populate `known_hosts` with `ssh-keyscan` or use AWS Systems Manager Session Manager, and set `host_key_checking = True`.
+
+## Troubleshooting
+
+### WSL "World Writable Directory" & Ignored `ansible.cfg`
+When executing Ansible inside Windows Subsystem for Linux (WSL) from a mounted Windows drive (such as `/mnt/c/Users/...`), Ansible outputs:
+```text
+[WARNING]: Ansible is being run in a world writable directory (/mnt/c/...), ignoring it as an ansible.cfg source.
+```
+* **Root Cause:** By default, Windows NTFS filesystems mounted under `/mnt/c/` have `0777` (world-writable) permissions in Linux. Ansible's security policy intentionally refuses to load an `ansible.cfg` from a world-writable directory to prevent privilege escalation or unauthorized setting overrides.
+* **Impact:** Because `ansible.cfg` is ignored, Ansible will not find `inventory = inventory/hosts.ini` or `roles_path = roles`, causing errors such as `could not match supplied host pattern` or `the playbook could not be found`.
+* **Solution:** Explicitly set the `ANSIBLE_CONFIG` environment variable to force Ansible to load the project's configuration:
+  ```bash
+  cd phase1/ansible
+  export ANSIBLE_CONFIG=./ansible.cfg
+  ansible-playbook playbooks/site.yml
+  ```
+  Explicitly passing `ANSIBLE_CONFIG` tells Ansible that the operator explicitly trusts this configuration file, safely bypassing the world-writable directory warning.
+
+### `ERROR! the playbook: ansible/playbook.yml could not be found`
+* **Root Cause:** Running `ansible-playbook ansible/playbook.yml` fails because the playbook is located at `playbooks/site.yml` inside the `phase1/ansible/` directory.
+* **Solution:** Navigate into `phase1/ansible` and execute `ansible-playbook playbooks/site.yml`.
 
 ## Limitations and Roadmap
 

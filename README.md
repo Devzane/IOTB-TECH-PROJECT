@@ -171,18 +171,29 @@ Access the application:
 
 ---
 
-### 2. Infrastructure Provisioning (Phase 1)
+### 2. Infrastructure Provisioning & Configuration (Phase 1)
 ```bash
+# Step A: Provision Cloud Infrastructure with Terraform
 cd phase1
-
-# Initialize and apply Terraform infrastructure
 terraform init
 terraform plan
 terraform apply -auto-approve
 
-# Configure host with Ansible (Docker CE installation)
-ansible-playbook -i ansible/inventory.ini ansible/playbook.yml
+# Step B: Configure Host with Ansible (Docker CE installation)
+cd ansible
+export ANSIBLE_CONFIG=./ansible.cfg
+ansible-playbook playbooks/site.yml
 ```
+
+> [!TIP]
+> **WSL / World-Writable Directory Troubleshooting:**
+> If you run Ansible inside WSL (`/mnt/c/...`) and encounter:
+> ```text
+> [WARNING]: Ansible is being run in a world writable directory (...), ignoring it as an ansible.cfg source.
+> ERROR! the playbook: ansible/playbook.yml could not be found
+> ```
+> 1. **Wrong playbook path:** The playbook is located at `playbooks/site.yml`, **not** `ansible/playbook.yml`. Always `cd phase1/ansible` first.
+> 2. **Ignored `ansible.cfg`:** Windows NTFS mounts inside WSL have `0777` permissions by default, which triggers an Ansible security lock that ignores `ansible.cfg`. Running `export ANSIBLE_CONFIG=./ansible.cfg` explicitly tells Ansible to trust and load the configuration file.
 
 ---
 
