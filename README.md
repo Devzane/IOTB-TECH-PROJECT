@@ -26,17 +26,25 @@
 
 The **ZeetaFin DevOps Engineering Suite** showcases the real-world evolution of an enterprise full-stack ERP system from raw AWS cloud infrastructure to an automated, self-healing, zero-downtime container rollout engine.
 
-```
-       [ Phase 1: Cloud Foundation ]
-     Terraform VPC + EC2  ──►  Ansible Docker Engine
-                 │
-                 ▼
-       [ Phase 2: Containerization ]
-     NestJS + Next.js  ──►  Multi-Stage Builds  ──►  Amazon ECR
-                 │
-                 ▼
-       [ Phase 3: Continuous Delivery ]
-     GitHub Actions  ──►  ECR Registry  ──►  SSH Engine  ──►  Live Probes
+```mermaid
+flowchart TD
+    subgraph P1 ["🏗️ Phase 1 · Cloud Foundation"]
+        direction LR
+        P1_TF["Terraform (VPC, Subnet, EC2)"] -->|Automates Host Setup| P1_ANS["Ansible (Docker CE Engine)"]
+    end
+
+    subgraph P2 ["🐳 Phase 2 · Containerization & Registry"]
+        direction LR
+        P2_SRC["NestJS + Next.js App"] -->|Multi-Stage Builds| P2_BUILD["Hardened Images (Non-root)"] -->|Publish Artifacts| P2_ECR["Amazon ECR (Private Registry)"]
+    end
+
+    subgraph P3 ["🚀 Phase 3 · Automated Continuous Delivery"]
+        direction LR
+        P3_GHA["GitHub Actions Pipeline"] -->|SSH Remote Execution| P3_SSH["deploy.sh (Atomic Swap)"] -->|Automated Probing| P3_CHK["Health Checks & Prune"]
+    end
+
+    P1 ==>|Provisions Runtime Host| P2
+    P2 ==>|Supplies Container Images| P3
 ```
 
 ---
