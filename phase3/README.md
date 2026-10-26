@@ -177,9 +177,11 @@ The workflow can also be triggered manually on demand via the GitHub Actions UI 
 
 ---
 
-## 7. Verification & Deliverables Checklist
+## 7. Phase 3 Verification Evidence & Deliverables Gallery
 
-### 1. Verification Commands on EC2
+Below is the complete visual evidence proving end-to-end CI/CD automation, secure secret management, container image publication to Amazon ECR, zero-collision deployment on Amazon EC2, automated smoke verification, and live production application access.
+
+### Verification Commands on EC2
 Connect to the server to verify running containers:
 ```bash
 ssh -i phase1-key.pem ubuntu@<EC2_PUBLIC_IP>
@@ -200,10 +202,61 @@ zeetafin-db-prod         postgres:16-alpine                                     
 zeetafin-frontend-prod   123456789012.dkr.ecr.us-east-1.amazonaws.com/...      "docker-entrypoint.s…"   frontend   45 seconds ago   Up 44 seconds (healthy)   0.0.0.0:3000->3000/tcp
 ```
 
-### 2. Browser Verification
-Open the web browser to access:
-- **ZeetaFin Web Interface:** `http://<EC2_PUBLIC_IP>:3000`
-- **Swagger REST API Documentation:** `http://<EC2_PUBLIC_IP>:3001/api/docs`
+---
+
+### Deliverable 1: GitHub Encrypted Secrets Configuration
+Proof that AWS IAM access keys, target EC2 host IP, SSH username, and OpenSSH private key are registered securely in GitHub Secrets:
+
+![GitHub Secrets Configuration](docs/images/github-secrets.png)
+
+---
+
+### Deliverable 2: Automated End-to-End GitHub Actions Pipeline Execution
+Proof of a 100% green pipeline run executing buildx multi-stage compilation, Amazon ECR publication, SSH deployment to EC2, and external automated smoke testing:
+
+![GitHub Actions Success Pipeline](docs/images/github-actions-success.png)
+
+---
+
+### Deliverable 3: Amazon ECR Private Container Repositories (`zeetafin-backend`)
+Proof of backend images pushed to Amazon ECR with immutable commit SHA tags and `latest` pointer, including automated vulnerability scan results:
+
+![ECR Backend Repositories and Images](docs/images/ecr-backend-images.png)
+
+---
+
+### Deliverable 4: Amazon ECR Private Container Repositories (`zeetafin-frontend`)
+Proof of frontend Next.js standalone container images pushed to Amazon ECR with commit SHA tags and `latest` pointer:
+
+![ECR Frontend Repositories and Images](docs/images/ecr-frontend-images.png)
+
+---
+
+### Deliverable 5: Production Multi-Container Rollout on EC2 (`docker compose ps`)
+Proof of running production containers (`zeetafin-db-prod`, `zeetafin-backend-prod`, and `zeetafin-frontend-prod`) on the EC2 instance, all healthy with zero port collision:
+
+![EC2 Production Docker Compose Status](docs/images/ec2-docker-compose-ps.png)
+
+---
+
+### Deliverable 6: Automated External Smoke & Health Check
+Proof of the post-deployment curl verification probe confirming HTTP 200 OK availability on the live public endpoints:
+
+![External Smoke Check](docs/images/external-smoke-check.png)
+
+---
+
+### Deliverable 7: Live Web Application Production UI (`http://<EC2_PUBLIC_IP>:3000`)
+Proof of the Next.js 14 ERP frontend accessible via browser over the public internet on EC2 port 3000:
+
+![Live Frontend Web UI on EC2](docs/images/live-frontend-public-ip.png)
+
+---
+
+### Deliverable 8: Live Backend REST API & Swagger Explorer (`http://<EC2_PUBLIC_IP>:3001/api/docs`)
+Proof of the interactive OpenAPI Swagger documentation running live on EC2 port 3001:
+
+![Live Backend Swagger Docs on EC2](docs/images/live-backend-swagger-public-ip.png)
 
 ---
 
