@@ -153,3 +153,49 @@ docker push 672061768969.dkr.ecr.us-east-1.amazonaws.com/zeetafin-backend:latest
 docker push 672061768969.dkr.ecr.us-east-1.amazonaws.com/zeetafin-frontend:latest
 ```
 
+---
+
+## 7. Phase 2 Verification Evidence & Deliverables
+
+Below is the complete visual evidence proving successful multi-stage container builds, local multi-service orchestration, UI/API availability, database persistence, and Amazon ECR publication.
+
+### Deliverable 1: Optimized Multi-Stage Docker Images (`docker images`)
+Proof of multi-stage build optimization showing lightweight image footprints for `zeetafin-backend` (~369 MB) and `zeetafin-frontend` (~224 MB standalone):
+
+![Docker Images List](docs/images/docker-images.png)
+
+---
+
+### Deliverable 2: Local Multi-Container Stack (`docker compose ps`)
+Proof that all 3 services (`zeetafin-db`, `zeetafin-backend`, and `zeetafin-frontend`) are running locally with healthy status:
+
+![Docker Compose PS](docs/images/docker-compose-ps.png)
+
+---
+
+### Deliverable 3: Local Web Application UI (`http://localhost:3000`)
+Proof of the Next.js 14 frontend rendering cleanly in the browser on `localhost:3000`:
+
+![Frontend Web Application UI](docs/images/frontend-web-ui.png)
+
+---
+
+### Deliverable 4: Backend REST API Swagger Documentation (`http://localhost:3001/api/docs`)
+Proof of the interactive OpenAPI Swagger explorer running on `localhost:3001`:
+
+![Backend Swagger Docs](docs/images/backend-swagger-docs.png)
+
+---
+
+### Deliverable 5: PostgreSQL Database Schema & Table Verification
+Proof that PostgreSQL initialized and backend TypeORM migrations seeded all necessary ERP tables:
+
+![PostgreSQL Database Schema](docs/images/database-schema-psql.png)
+
+---
+
+### Deliverable 6: Amazon ECR Private Repositories in AWS Console
+Proof that both `zeetafin-backend` and `zeetafin-frontend` private container repositories were successfully created in Amazon ECR with scan-on-push enabled:
+
+![Amazon ECR Repositories](docs/images/ecr-repositories.png)
+
